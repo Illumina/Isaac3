@@ -58,6 +58,7 @@ uint64_t BinSorter::serialize(
         while(binData.data_.size() != offset)
         {
             const io::FragmentAccessor &fragment = binData.data_.getFragment(offset);
+//            ISAAC_THREAD_CERR << "storeUnaligned: " << offset << "/" << binData.data_.size() << " " << fragment << std::endl;
             bamSerializer_.storeUnaligned(fragment, bgzfStreams, bamIndexParts, binData.bamAdapter_(fragment));
             offset += fragment.getTotalLength();
         }

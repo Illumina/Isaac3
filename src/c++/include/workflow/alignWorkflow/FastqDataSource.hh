@@ -52,7 +52,6 @@ class FastqBaseCallsSource : public TileSource, public BarcodeSource
 public:
     FastqBaseCallsSource(
         const unsigned clustersAtATimeMax,
-        const bool allowVariableLength,
         const unsigned coresMax,
         const flowcell::BarcodeMetadataList &barcodeMetadataList,
         const flowcell::Layout &fastqFlowcellLayout,

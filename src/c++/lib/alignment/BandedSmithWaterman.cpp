@@ -21,10 +21,8 @@
 #include <cassert>
 #include <cstdlib>
 #include <algorithm>
-#include <xmmintrin.h> 
-//#include <smmintrin.h> // sse4 instructions for _mm_insert_epi8
-
 #include <boost/format.hpp>
+#include <cstdint>
 
 #include "alignment/BandedSmithWaterman.hh"
 
@@ -42,7 +40,7 @@ BandedSmithWaterman::BandedSmithWaterman(const int matchScore, const int mismatc
     , gapExtendScore_(gapExtendScore)
     , maxReadLength_(maxReadLength)
     , initialValue_(static_cast<int>(std::numeric_limits<short>::min()) + gapOpenScore_)
-    , T_((char *)_mm_malloc (maxReadLength_ * 3 *sizeof(__m128i), 16))
+    , T_(new char[maxReadLength_ * 3 * WIDEST_GAP_SIZE * sizeof(int16_t)])
 {
     // check that there won't be any overflows in the matrices
     const int maxScore = std::max(std::max(std::max(abs(matchScore_), abs(mismatchScore_)), abs(gapOpenScore_)), abs(gapExtendScore_));
@@ -55,22 +53,16 @@ BandedSmithWaterman::BandedSmithWaterman(const int matchScore, const int mismatc
 
 BandedSmithWaterman::~BandedSmithWaterman()
 {
-    _mm_free(T_);
+    free(T_);
 }
 
-// insert in register 0 only -- workaround for missing sse4 instruction set
-inline __m128i _mm_insert_epi8(__m128i v, char c, int)
+void BandedSmithWaterman::cp(int16_t source[WIDEST_GAP_SIZE], int16_t destination[WIDEST_GAP_SIZE]) const
 {
-    const unsigned int tmp = _mm_extract_epi16(v, 0) & 0xffffff00u;
-    const unsigned s = c & 0xff;
-    return _mm_insert_epi16(v, tmp | s, 0);
+    // AV
+    for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+    destination[i] = source[i];
+    }
 }
-
-// helper functions for debugging
-std::string epi8(__m128i v);
-std::string epi8s(__m128i v);
-std::string epi8c(__m128i v);
-std::ostream &operator<<(std::ostream &os, const __m128i &H);
 
 unsigned BandedSmithWaterman::align(
     const std::vector<char> &query,
@@ -84,7 +76,7 @@ unsigned BandedSmithWaterman::align(
 unsigned BandedSmithWaterman::trimTailIndels(Cigar& cigar, const size_t beginOffset) const
 {
     unsigned ret = 0;
-    uint64_t extend = 0;
+    unsigned long extend = 0;
     for (Cigar::Component component = Cigar::decode(cigar.back());
         cigar.size() != beginOffset; component = Cigar::decode(cigar.back()))
     {
@@ -116,7 +108,6 @@ unsigned BandedSmithWaterman::trimTailIndels(Cigar& cigar, const size_t beginOff
         {
             // this was a really bad s-w alignment. Something like this: 15D7I7D15I15D15I15D15I15D15I15D
             cigar.addOperation(extend, Cigar::ALIGN);
-            ISAAC_ASSERT_MSG(!extend, "Unexpectedly long CIGAR operation");
         }
         else
         {
@@ -244,330 +235,189 @@ unsigned BandedSmithWaterman::align(
 {
     assert(databaseEnd > databaseBegin);
     const size_t querySize = std::distance(queryBegin, queryEnd);
-    ISAAC_ASSERT_MSG(querySize + WIDEST_GAP_SIZE - 1 == (uint64_t)(databaseEnd - databaseBegin), "q:" << std::string(queryBegin, queryEnd) << " db:" << std::string(databaseBegin, databaseEnd));
+    ISAAC_ASSERT_MSG(querySize + WIDEST_GAP_SIZE - 1 == (unsigned long)(databaseEnd - databaseBegin), "q:" << std::string(queryBegin, queryEnd) << " db:" << std::string(databaseBegin, databaseEnd));
     assert(querySize <= size_t(maxReadLength_));
     const size_t originalCigarSize = cigar.size();
-    //std::cerr << matchScore_ << " " << mismatchScore_ << " " << gapOpenScore_ << " " << gapExtendScore_  << std::endl;
-    //std::cerr << "   " << query << std::endl;
-    //std::cerr << database << std::endl;
-    //__m128i *nextH = allH_;
-    //allH_.clear();
-    //allH_.reserve(query.length());
-    //const __m128i GapOpenScore = _mm_insert_epi16(_mm_set1_epi16(gapOpenScore_), 0, 0);
-    //const __m128i GapExtendScore = _mm_insert_epi16(_mm_set1_epi16(gapExtendScore_), 0, 0);
-    __m128i *t = (__m128i *)T_;
-    const __m128i GapOpenScore = _mm_set1_epi16(gapOpenScore_);
-    const __m128i GapExtendScore = _mm_set1_epi16(gapExtendScore_);
+    int16_t *t = (int16_t*)T_;
+
+    int16_t GapOpenScore[WIDEST_GAP_SIZE], GapExtendScore[WIDEST_GAP_SIZE];
+    for(unsigned i = 0; i < WIDEST_GAP_SIZE; i++) {
+        GapOpenScore[i] = gapOpenScore_;
+        GapExtendScore[i] = gapExtendScore_;
+    }
     // Initialize E, F and G
-    __m128i E[2], F[2], G[2];
-    for (unsigned int i = 0; 2 > i; ++i)
-    {
-        E[i] = _mm_set1_epi16(initialValue_);
-        F[i] = _mm_set1_epi16(0); // Should this be -10000?
-        G[i] = _mm_set1_epi16(initialValue_);
+    int16_t D[WIDEST_GAP_SIZE], E[WIDEST_GAP_SIZE], F[WIDEST_GAP_SIZE], G[WIDEST_GAP_SIZE];
+    for(unsigned i = 0; i < WIDEST_GAP_SIZE; i++) {
+        E[i] = initialValue_;
+        F[i] = 0;
+        G[i] = initialValue_;
     }
-    G[0] = _mm_insert_epi16(G[0], 0, 0);
-    // initialize D -- Note that we must leave the leftmost position empty (else it will be discarded before use)
-    __m128i D = _mm_setzero_si128();
-    for (unsigned int i = 0; WIDEST_GAP_SIZE > i + 1; ++i)
-    {
-        D = _mm_slli_si128(D, 1);
-        D = _mm_insert_epi8(D, *(databaseBegin + i), 0);
+    G[0] = 0;
+
+    for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+        D[i] = *(databaseBegin + (WIDEST_GAP_SIZE - i - 2));
     }
-    //std::cerr << "    D:" << epi8(D) << "   " << database << std::endl;
+
     // iterate over all bases in the query
-    //std::cerr << std::endl << database << std::endl << query << std::endl;
+    int16_t F1[WIDEST_GAP_SIZE + 1];
+    int16_t cmpgtEgMask1[WIDEST_GAP_SIZE + 1], maxEg1[WIDEST_GAP_SIZE + 1];
+    F1[0] = initialValue_ + gapExtendScore_;
+    maxEg1[0] = initialValue_ + gapOpenScore_;
+    cmpgtEgMask1[0] = 0;
     std::vector<char>::const_iterator queryCurrent = queryBegin;
     for (unsigned queryOffset = 0; queryEnd != queryCurrent; ++queryOffset, ++queryCurrent)
     {
-        __m128i tmp0[2], tmp1[2], tmp2[2];
-        // F[i, j] = max(G[i-1, j] - open, E[i-1, j] - open, F[i-1, j] - extend)
-        // G[i-1, j] and E[i-1, j]
-        tmp0[1] = _mm_slli_si128(G[1], 2);
-        tmp0[1] = _mm_insert_epi16(tmp0[1], _mm_extract_epi16(G[0], 7), 0);
-        tmp0[0] = _mm_slli_si128(G[0], 2); // is the 0 initialisation alright?
-        tmp1[1] = _mm_slli_si128(E[1], 2);
-        tmp1[1] = _mm_insert_epi16(tmp1[1], _mm_extract_epi16(E[0], 7), 0);
-        tmp1[0] = _mm_slli_si128(E[0], 2); // is the 0 initialisation alright?
+        int16_t TE[WIDEST_GAP_SIZE], TF[WIDEST_GAP_SIZE], TG[WIDEST_GAP_SIZE];
+        int16_t D1[WIDEST_GAP_SIZE + 1];
+        int16_t Q[WIDEST_GAP_SIZE];
+        int16_t GA[WIDEST_GAP_SIZE];
 
-        for (unsigned j = 0; 2 > j; ++j)
-        {
-            // identify which matrix provided the max (hack: true is 0xffff)
-            tmp2[j] = _mm_cmplt_epi16(tmp0[j], tmp1[j]); // 0xffff if G[i-1, j] < E[i-1, j], 0 otherwise
-            tmp2[j] = _mm_srli_epi16(tmp2[j], 15); // shift 15 bits to have only 1 for true
-        }
-        __m128i TF = _mm_packs_epi16(tmp2[0], tmp2[1]);
-        // get max(G[i-1, j] - open, E[i-1, j] - open)
-        __m128i newF[2];
-        for (unsigned int j = 0; 2 > j; ++j)
-        {
-            newF[j] = _mm_max_epi16(tmp0[j], tmp1[j]);// newF = max(G[i-1, j], E[i-1, j])
-            newF[j] = _mm_sub_epi16(newF[j], GapOpenScore); // newF = max(G[i-1, j] - open, E[i-1, j] - open)
-        }
         // get F[i-1, j] - extend
-        tmp0[1] = _mm_slli_si128(F[1], 2);
-        tmp0[1] = _mm_insert_epi16(tmp0[1], _mm_extract_epi16(F[0], 7), 0);
-        tmp0[1] = _mm_sub_epi16(tmp0[1], GapExtendScore);
-        tmp0[0] = _mm_slli_si128(F[0], 2);
-        tmp0[0] = _mm_sub_epi16(tmp0[0], GapExtendScore);
-        // correct TF
-        for (unsigned j = 0; 2 > j; ++j)
-        {
-            tmp2[j] = _mm_cmplt_epi16(newF[j], tmp0[j]); // 0xffff if max(G[i-1, j], E[i-1,j] - open < F[i-1, j] - extend
-            //tmp2[j] = _mm_srli_epi16(tmp2[j], 14); // shift 14 bits to have 3 for true
-            tmp2[j] = _mm_slli_epi16(_mm_srli_epi16(tmp2[j], 15), 1); // shift right 15 bits and left 1 bit to have 2 for true
+        int16_t cmpgtGfMask[WIDEST_GAP_SIZE];
+
+        int16_t *cmpgtEgMaskOff = cmpgtEgMask1 + 1;
+        int16_t *maxEgOff = maxEg1 + 1;
+        // AV
+        for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+            cmpgtEgMaskOff[i] = E[i] > G[i] ? 1 : 0;
         }
-        TF = _mm_max_epu8(_mm_packs_epi16(tmp2[0], tmp2[1]), TF); // 0, 1, or 2 for G, E or F
-        TF = _mm_insert_epi8(TF, 0, 0); // 0, 1, or 2 for G, E or F
-        // correct F according to (F[i-1, j] - extend)
-        for (unsigned int j = 0; 2 > j; ++j)
-        {
-            newF[j] = _mm_max_epi16(newF[j], tmp0[j]);
+        for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+            maxEgOff[i] = G[i] > E[i] ? G[i] : E[i];
         }
-        newF[0] = _mm_insert_epi16(newF[0], initialValue_, 0);
-        // G[i, j] = max(G[i-1, j-1], E[i-1, j-1], F[i-1, j-1]
-        __m128i newG[2];
-        for (unsigned int j = 0; 2 > j; ++j)
-        {
-            tmp2[j] = _mm_cmplt_epi16(G[j], E[j]); // 0xffff if G[i-1, j-1] < E[i-1, j-1], 0 otherwise
-            tmp2[j] = _mm_srli_epi16(tmp2[j], 15); // shift 15 bits to have only 1 for true
-            newG[j] = _mm_max_epi16(G[j], E[j]);// newG = max(G[i-1, j-1], E[i-1, j-1])
+        for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+            cmpgtGfMask[i] = F[i] > maxEgOff[i] ? 2 : 0;
         }
-        __m128i TG = _mm_packs_epi16(tmp2[0], tmp2[1]);
-        // correct G and TG
-        //std::cerr << "newG: " << newG[1] << newG[0] << std::endl;
-        for (unsigned int j = 0; 2 > j; ++j)
-        {
-            tmp2[j] =  _mm_cmplt_epi16(newG[j], F[j]); // 0xffff if max(G[i-1, j-1], E[i-1,j-1] < F[i-1, j-1]
-            tmp2[j] = _mm_slli_epi16(_mm_srli_epi16(tmp2[j], 15), 1); // shift right 15 bits and left 1 bit to have 2 for true
-            newG[j] = _mm_max_epi16(newG[j], F[j]);
+        for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+            GA[i] = maxEgOff[i] > F[i] ? maxEgOff[i] : F[i];
         }
-        //std::cerr << "newG: " << newG[1] << newG[0] << std::endl;
-        //std::cerr << "   G: " << G[1] << G[0] << std::endl;
-        //std::cerr << "   E: " << E[1] <<  E[0] << std::endl;
-        //std::cerr << "   F: " << F[1] <<  F[0] << std::endl;
-        //std::cerr << "tmp0: " << tmp0[1] << tmp0[0] << std::endl;
-        //std::cerr << "tmp1: " << tmp1[1] << tmp1[0] << std::endl;
-        TG = _mm_max_epi16(_mm_packs_epi16(tmp2[0], tmp2[1]), TG); // 0, 1, or 2 for G, E or F
+        for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+            TG[i] =
+                   cmpgtEgMaskOff[i] >
+                cmpgtGfMask[i] ? cmpgtEgMaskOff[i] : cmpgtGfMask[i];
+        }
+
+        cp(F, F1 + 1);
+        int16_t GF1[WIDEST_GAP_SIZE], maxEgSubGapOpen1[WIDEST_GAP_SIZE],
+            cmpgtGfMask1[WIDEST_GAP_SIZE];
+        // AV
+        for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+            GF1[i] = F1[i] - GapExtendScore[i];
+            maxEgSubGapOpen1[i] = maxEg1[i] - GapOpenScore[i];
+            cmpgtGfMask1[i] = GF1[i] > maxEgSubGapOpen1[i] ? 2 : 0;
+            TF[i] =
+                cmpgtEgMask1[i] >
+                cmpgtGfMask1[i] ? cmpgtEgMask1[i] : cmpgtGfMask1[i];
+            F[i] =
+                maxEgSubGapOpen1[i] > GF1[i] ? maxEgSubGapOpen1[i] : GF1[i];
+        }
+
         // add the match/mismatch score
         // load the query base in all 8 values of the register
-        __m128i Q = _mm_set1_epi8(*queryCurrent);
+        for(unsigned i = 0; i < WIDEST_GAP_SIZE; i++) { 
+            Q[i] = *queryCurrent;
+        }
+
         // shift the database by 1 byte to the left and add the new base
-        D = _mm_slli_si128(D, 1);
-        D = _mm_insert_epi8(D, *(databaseBegin + queryOffset + WIDEST_GAP_SIZE - 1), 0);
+
+        cp(D, D1+1);
+        D1[0] = *(databaseBegin + queryOffset + (WIDEST_GAP_SIZE - 1));
+        cp(D1, D);
+
         // compare query and database. 0xff if different (that also the sign bits)
-        const __m128i ONE = _mm_set1_epi8(0xFF);
-        const __m128i B = _mm_andnot_si128(_mm_cmpeq_epi8(Q, D), ONE);
+        int16_t B[WIDEST_GAP_SIZE], Match[WIDEST_GAP_SIZE],
+        Mismatch[WIDEST_GAP_SIZE], W[WIDEST_GAP_SIZE];
 
-#if 0
-        //std::cerr << std::endl << database << std::endl << query << std::endl;;
-        std::cerr << (boost::format("%2d  D:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
+        // lea
+        for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+            B[i] = (Q[i] == D[i]) ? 0 : 0xFFFF;
+            Match[i] = (~B[i]) & matchScore_;
+            Mismatch[i] = B[i] & mismatchScore_;
+            W[i] = Match[i] + Mismatch[i];
+            G[i] = GA[i] + (W[i] | (B[i] & 0xFF00));
         }
-        std::cerr << epi8c(D) << std::endl;
 
-        std::cerr << (boost::format("%2d  Q:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
-        }
-        std::cerr << epi8c(Q) << std::endl;
-        //std::cerr << (boost::format("%2d  B:") % (i+1)).str();
-        //for (unsigned j = 0; j < i; ++j)
-        //{
-        //    std::cerr << "   0";
-        //}
-        //std::cerr << epi8(B) << std::endl;
-        //exit(1);
-#endif
-        // set match/mismatch scores, according to comparison
-        const __m128i Match = _mm_andnot_si128(B, _mm_set1_epi8(matchScore_));
-        const __m128i Mismatch = _mm_and_si128(B, _mm_set1_epi8(mismatchScore_));
-        // add the match/mismatch scored to HH
-        const __m128i W = _mm_add_epi8(Match, Mismatch);
-
-#if 0
-        std::cerr << (boost::format("%2d  W:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
-        }
-        std::cerr << epi8s(W) << std::endl;
-#endif
-        newG[0] = _mm_add_epi16(newG[0], _mm_unpacklo_epi8(W, B));
-        newG[1] = _mm_add_epi16(newG[1], _mm_unpackhi_epi8(W, B));
         // E[i,j] = max(G[i, j-1] - open, E[i, j-1] - extend, F[i, j-1] - open)
-        __m128i TE = _mm_setzero_si128();
-        // E should never be the maximum in the leftmost side of the window
-        short g = initialValue_; // -gapOpenScore_;
-        short e = initialValue_; // -gapExtendScore_;
-        short f = initialValue_; // -gapOpenScore_;
-        for (unsigned j = 0; 2 > j; ++j)
-        {
-            tmp0[j] = _mm_sub_epi16(newG[j], GapOpenScore);
-            tmp1[j] = _mm_sub_epi16(newF[j], GapOpenScore);
-        }
-        //std::cerr << "newG: " << newG[1] << newG[0] << std::endl;
-        //std::cerr << "tmp0: " << tmp0[1] << tmp0[0] << std::endl;
-        //std::cerr << "newF: " << newF[1] << newF[0] << std::endl;
-        //std::cerr << "tmp1: " << tmp1[1] << tmp1[0] << std::endl;
-        //std::cerr <<  "WIDEST_GAP_SIZE = " << WIDEST_GAP_SIZE << std::endl;
-        for (unsigned int j = 0; j < WIDEST_GAP_SIZE; ++j)
-        {
-            //std::cerr << "---- j = " << j << std::endl;
-            if (8 == j)
-            {
-                //std::cerr << "   E: " << E[1] << E[0] << std::endl;
-                //std::cerr << "tmp0: " << tmp0[1] << tmp0[0] << std::endl;
-                //std::cerr << "tmp1: " << tmp1[1] << tmp1[0] << std::endl;
-                tmp0[1] = tmp0[0];
-                tmp1[1] = tmp1[0];
-                E[1] = E[0];
-            }
-            short max = g;
-            short tMax = 0;
-            if (e > g && e > f)
-            {
+         int16_t cmpgtFgMask2[WIDEST_GAP_SIZE + 1], maxFg2[WIDEST_GAP_SIZE + 1];
+           int16_t *cmpgtFgMaskOff2 = cmpgtFgMask2 + 1;
+           int16_t *maxFgOff2 = maxFg2 + 1;
+           // AV
+           for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+               cmpgtFgMask2[i] = F[i] > G[i] ? 2 : 0;
+               maxFg2[i] = F[i] > G[i] ? F[i] : G[i];
+               maxFg2[i] -= GapOpenScore[i];
+           }
+
+           E[WIDEST_GAP_SIZE - 1] = initialValue_;
+        maxFg2[WIDEST_GAP_SIZE] = initialValue_;
+
+        short e = initialValue_;
+        short fg = initialValue_;
+        for (size_t i = WIDEST_GAP_SIZE; i > 0; i--) {
+            short max = fg;
+            if (e > fg) {
                 max = e;
-                tMax = 1;
             }
-            else if (f > g)
-            {
-                max = f;
-                tMax = 2;
-            }
-            //std::cerr << (boost::format("g = %d, e = %d, f = %d, max = %d, tMax = %d") % g % e % f % max % tMax ).str() << std::endl;
-            TE = _mm_slli_si128(TE, 1);
-            TE = _mm_insert_epi8(TE, tMax, 0);
-            E[0] = _mm_slli_si128(E[0], 2);
-            E[0] = _mm_insert_epi16(E[0], max, 0);
-            g = _mm_extract_epi16(tmp0[1], 7);
-            e = max - gapExtendScore_;
-            f = _mm_extract_epi16(tmp1[1], 7);
-            tmp0[1] = _mm_slli_si128(tmp0[1], 2);
-            tmp1[1] = _mm_slli_si128(tmp1[1], 2);
-            //std::cerr << "   E: " << E[1] << E[0] << std::endl;
-            //std::cerr << "  TE: " << epi8(TE) << std::endl;
+           E[i - 1] = max;
+           fg = maxFg2[i - 1];
+    
+           e = max - gapExtendScore_;
         }
-        //E[0] = _mm_slli_si128(E[0], 2);
-        for (unsigned j = 0; 2 > j; ++j)
-        {
-            G[j] = newG[j];
-            F[j] = newF[j];
+
+        // lea
+        int16_t cmpgtFgSueFgMask2[WIDEST_GAP_SIZE];
+        cmpgtFgMask2[WIDEST_GAP_SIZE] = initialValue_;
+        for (size_t i = 0; i < WIDEST_GAP_SIZE; i++) {
+            cmpgtFgSueFgMask2[i] = E[i] > maxFgOff2[i] ? 5 : 0;
+            E[i] = E[i] > maxFgOff2[i] ? E[i] : maxFgOff2[i];
+            TE[i] =
+                (cmpgtFgSueFgMask2[i] >
+                 cmpgtFgMaskOff2[i] ? cmpgtFgSueFgMask2[i] :
+                 cmpgtFgMaskOff2[i]) & 3;
         }
-        // TODO: add support for databases shorter than query + widestGapSize
-        // store the matrix types
-        _mm_store_si128(t++, TG);
-        _mm_store_si128(t++, TE);
-        _mm_store_si128(t++, TF);
-#if 0
-        std::cerr << (boost::format("%2d  G:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
-        }
-        std::cerr << G[1] << G[0] << std::endl;
-        std::cerr << (boost::format("%2d TG:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
-        }
-        std::cerr << epi8(TG) << std::endl;
-        std::cerr << (boost::format("%2d  E:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
-        }
-        std::cerr << E[1] << E[0] << std::endl;
-        std::cerr << (boost::format("%2d TE:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
-        }
-        std::cerr << epi8(TE) << std::endl;
-        std::cerr << (boost::format("%2d  F:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
-        }
-        std::cerr << F[1] << F[0] << std::endl;
-        std::cerr << (boost::format("%2d TF:") % (queryOffset+1)).str();
-        for (unsigned j = 0; j < queryOffset; ++j)
-        {
-            std::cerr << " 0";
-        }
-        std::cerr << epi8(TF) << std::endl;
-#endif
+
+        TF[0] = 0;
+
+        cp(TG, t);
+        cp(TE, t + WIDEST_GAP_SIZE);
+        cp(TF, t + WIDEST_GAP_SIZE * 2);
+        t += WIDEST_GAP_SIZE * 3;
     }
     // find the max of E, F and G at the end
-    short max = _mm_extract_epi16(G[1], 7) - 1;
+    short max = G[15] - 1;
+
     int ii = querySize - 1;
     int jj = ii;
     unsigned maxType = 0;
-    __m128i *TT[] = {G, E, F};
-    for (unsigned int k = 0; 2 > k; ++k)
+
+
+    int16_t *TT[] = {G, E, F};
+    for (unsigned j = WIDEST_GAP_SIZE; j > 0; j--)
     {
-        const unsigned int kk = (k + 1) % 2;
-        //std:: cerr << "kk = " << kk << ", max = " << max << std::endl;
-        //std::cerr << "type 0: " << TT[0][kk] << std::endl;
-        //std::cerr << "type 1: " << TT[1][kk] << std::endl;
-        //std::cerr << "type 2: " << TT[2][kk] << std::endl;
-        for (unsigned j = 8; 0 < j; --j)
+        for (unsigned type = 0; 3 > type; ++type)
         {
-            //std::cerr << "j = " << j;
-            for (unsigned type = 0; 3 > type; ++type)
+            const short value = TT[type][j - 1];
+            if (value > max)
             {
-                const short value = _mm_extract_epi16(TT[type][kk], 7);
-                //std::cerr << ", type = " << type << ", value = " << value;
-                TT[type][kk] = _mm_slli_si128(TT[type][kk], 2);
-                if (value > max)
-                {
-                    //std::cerr << std::endl << "max = " << max << ", value = " << value<< ", j = "  << j<< ", kk = "  << kk << std::endl;
-                    max = value;
-                    jj = 8 * kk + j - 1;
-                    maxType = type;
-                }
+                max = value;
+                jj = j - 1;
+                maxType = type;
             }
-            //std::cerr << std::endl;
         }
     }
-    //std::cerr << (boost::format("ii = %d, jj = %d, max = %d, maxType = %d") % (ii + 1) % jj % max % maxType).str() << std::endl;
+
     const int jjIncrement[] = {0, 1, -1};
     const int iiIncrement[] = {-1, 0, -1};
     const Cigar::OpCode opCodes[] = {Cigar::ALIGN, Cigar::DELETE, Cigar::INSERT};
     unsigned opLength = 0;
-    //std::string newDatabase;
-    //std::string newQuery;
-    //std::cerr << std::endl << "building CIGAR" << std::endl;
     if (jj > 0)
     {
         cigar.addOperation(jj, Cigar::DELETE);
     }
     while(ii >= 0 && jj >= 0 && jj <= 15)
     {
-#if 0
-        if (0 == maxType)
-        {
-            newDatabase.push_back(database[ii + 15 - jj]);
-            newQuery.push_back(query[ii]);
-        }
-        else if(1 == maxType)
-        {
-            newDatabase.push_back(database[ii + 15 - jj]);
-            newQuery.push_back('-');
-        }
-        else if(2 == maxType)
-        {
-            newDatabase.push_back('-');
-            newQuery.push_back(query[ii]);
-        }
-#endif
         ++opLength;
-        const unsigned nextMaxType = T_[(ii * 3 + maxType) * sizeof(__m128i) + jj];
-        //std::cerr << (boost::format("ii = %d, jj = %d, maxType = %d, nextMaxType = %d, opLength = %d") %
-        //              ii % jj % maxType %nextMaxType % opLength ).str() << std::endl;
+        const unsigned nextMaxType = T_[(ii * 3 + maxType)
+            * WIDEST_GAP_SIZE * sizeof(int16_t) + (jj * 2)];
         if (nextMaxType != maxType)
         {
             cigar.addOperation(opLength, opCodes[maxType]);
@@ -589,65 +439,11 @@ unsigned BandedSmithWaterman::align(
         opLength = 0;
     }
     assert(0 == opLength);
-    //descriptor.push_back(d[maxType]);
     unsigned ret = trimTailIndels(cigar, originalCigarSize);
     std::reverse(cigar.begin() + originalCigarSize, cigar.end());
     trimTailIndels(cigar, originalCigarSize);
     removeAdjacentIndels(cigar, originalCigarSize);
     return ret;
-    //std::cerr << std::endl << "CIGAR: " << cigar.toString() << std::endl;
-    //std::reverse(newDatabase.begin(), newDatabase.end());
-    //std::reverse(newQuery.begin(), newQuery.end());
-    //std::cerr << "       " << descriptor << std::endl;
-    //std::cerr << database << std::endl;
-    //std::cerr << "       " << query << std::endl;
-    //std::cerr << "       " << newQuery << std::endl;
-    //std::cerr << "       " << newDatabase << std::endl;
-}
-
-std::string epi8(__m128i v)
-{
-    std::string result;
-    for (unsigned int i = 0; 16 > i; ++i)
-    {
-        result += (boost::format("%3d") % (_mm_extract_epi16(v, 7) >> 8)).str();
-        v = _mm_slli_si128(v, 1);
-    }
-    return result;
-}
-
-std::string epi8s(__m128i v)
-{
-    std::string result;
-    for (unsigned int i = 0; 16 > i; ++i)
-    {
-        result += (boost::format("%3d") % ((int)(_mm_extract_epi16(v, 7)) >> 8)).str();
-        v = _mm_slli_si128(v, 1);
-    }
-    return result;
-}
-
-std::string epi8c(__m128i v)
-{
-    std::string result;
-    for (unsigned int i = 0; 16 > i; ++i)
-    {
-        result += (boost::format("  %c") % char(_mm_extract_epi16(v, 7) >> 8)).str();
-        v = _mm_slli_si128(v, 1);
-    }
-    return result;
-}
-
-std::ostream &operator<<(std::ostream &os, const __m128i &H)
-{   
-    __m128i tmp0 = H;
-    for (unsigned int i = 0; i < 8; ++i)
-    {
-        short v = _mm_extract_epi16(tmp0, 7);
-        std::cerr << (boost::format("%3d") % std::max(short(-99), v)).str();
-        tmp0 = _mm_slli_si128(tmp0, 2);
-    }
-    return os;
 }
 
 } // namespace alignment

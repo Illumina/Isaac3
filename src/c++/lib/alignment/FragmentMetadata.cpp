@@ -225,13 +225,13 @@ unsigned FragmentMetadata::updateAlignment(
     const flowcell::ReadMetadata &readMetadata,
     const reference::ContigList &contigList,
     const isaac::reference::ContigAnnotations &contigAnnotations,
+    bool reverse,
     unsigned contigId,
     const int64_t strandPosition,
     const Cigar &cigarBuffer,
     const unsigned cigarOffset)
 {
     const Read &read = this->getRead();
-    bool reverse = this->reverse;
     std::vector<char>::const_iterator sequenceBegin = read.getStrandSequence(reverse).begin();
     std::vector<char>::const_iterator qualityBegin = read.getStrandQuality(reverse).begin();
 

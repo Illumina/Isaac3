@@ -41,6 +41,11 @@ ParsedUseBasesMask parseUseBasesMask (
     const std::string &useBasesMask,
     const boost::filesystem::path &baseCallsDirectory);
 
+inline bool isWildcardUseBasesMask(const std::string &useBasesMask)
+{
+    return std::string::npos != useBasesMask.find('*', 0);
+}
+
 } // namespace options
 } // namespace isaac
 

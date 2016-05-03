@@ -73,7 +73,7 @@ static isaac::alignment::AlignmentCfg alignmentCfg(ELAND_MATCH_SCORE, ELAND_MISM
 TestSemialignedClipper::TestSemialignedClipper() :
     readMetadataList(getReadMetadataList()),
     seedMetadataList(getSeedMetadataList()),
-    flowcells(1, isaac::flowcell::Layout("", isaac::flowcell::Layout::Fastq, isaac::flowcell::FastqFlowcellData(false, '!'), 8, 0, std::vector<unsigned>(),
+    flowcells(1, isaac::flowcell::Layout("", isaac::flowcell::Layout::Fastq, isaac::flowcell::FastqFlowcellData(false, '!', false), 8, 0, std::vector<unsigned>(),
                                          readMetadataList, seedMetadataList, "blah")),
     ungappedAligner_(true, alignmentCfg)
 {

@@ -214,7 +214,6 @@ void BamBaseCallsSource::loadClusters(
     const flowcell::TileMetadata &tileMetadata,
     alignment::BclClusters &bclData)
 {
-    ISAAC_ASSERT_MSG(tileMetadata.getIndex() == currentTile_ - 1, "Unexpected tile requested");
     ISAAC_THREAD_CERR << "Loaded bam tile: " << tileMetadata << " with " << clusters_.getClusterCount() << " clusters" << std::endl;
 
     bclData.swap(clusters_);

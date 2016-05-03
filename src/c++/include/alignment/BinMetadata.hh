@@ -49,7 +49,23 @@ struct BarcodeCounts
     uint64_t splits_;
     // sum of all fragment cigar lengths in the bin barcode.
     uint64_t cigarLength_;
+
+    BarcodeCounts& operator += (const BarcodeCounts &that)
+    {
+        elements_ += that.elements_;
+        gaps_ += that.gaps_;
+        splits_ += that.splits_;
+        cigarLength_ += that.cigarLength_;
+        return *this;
+    }
+
+    friend BarcodeCounts operator + (const BarcodeCounts &left, const BarcodeCounts &right)
+    {
+        BarcodeCounts ret(left);
+        return ret += right;
+    }
 };
+
 
 
 struct BinChunk
@@ -60,6 +76,28 @@ struct BinChunk
     // required for serialization
     BinChunk(): dataSize_(0){}
     BinChunk(const unsigned barcodesCount) : barcodeBreakdown_(barcodesCount), dataSize_(0){}
+
+    static void reset(BinChunk &chunk)
+    {
+        chunk.dataSize_ = 0;
+        for (BarcodeCounts &barcode : chunk.barcodeBreakdown_) {barcode = BarcodeCounts(); }
+    }
+
+    void swap(BinChunk &that)
+    {
+        if (this != &that)
+        {
+            std::swap(dataSize_ , that.dataSize_);
+            barcodeBreakdown_.swap(that.barcodeBreakdown_);
+        }
+    }
+
+    BinChunk &operator += (const BinChunk &that)
+    {
+        dataSize_ += that.dataSize_;
+        std::transform(barcodeBreakdown_.begin(), barcodeBreakdown_.end(), that.barcodeBreakdown_.begin(), barcodeBreakdown_.begin(), std::plus<BarcodeCounts>());
+        return *this;
+    }
 
     uint64_t getTotalCigarLength() const
     {
@@ -132,12 +170,38 @@ public:
     using std::vector<BinChunk>::size;
     BinDataDistribution(
         const unsigned barcodesCount,
-        uint64_t length,
+        const uint64_t length,
         const unsigned distributionChunksCount)
-    // one more chunk so that tallyOffset produces the end offset for the last present chunk
+        // we need one for rounding and one more chunk so that tallyOffset produces the end offset for the last present chunk. Last chunk should be always empty
         :std::vector<BinChunk>(length / getChunkSize(length, distributionChunksCount) + 2UL, BinChunk(barcodesCount)),
          chunkSize_(getChunkSize(length, distributionChunksCount)), offsetsTallied_(false)
     {
+    }
+
+    void makeChunksBigger(const uint64_t newBinLength)
+    {
+        ISAAC_ASSERT_MSG(!empty(), "Unexpected empty bin " << *this);
+        const uint64_t oldChunkSize = chunkSize_;
+        chunkSize_ = getChunkSize(newBinLength, size() - 2);
+        ISAAC_THREAD_CERR << "increasing chunkSize to " << chunkSize_ << " from " << oldChunkSize << " for newBinLength: " << newBinLength << " last:" << back() << std::endl;
+        ISAAC_ASSERT_MSG(oldChunkSize < chunkSize_, "New chunk size " << chunkSize_ << " must be greater than " << oldChunkSize);
+        iterator merged = begin();
+        iterator current = begin();
+        for (; end() - 1 != current;)
+        {
+            merged->swap(*current);
+            ++current;
+            for (uint64_t s = oldChunkSize; s < chunkSize_ && end() - 1 != current; s += oldChunkSize)
+            {
+                *merged += *current;
+                ++current;
+            }
+            ++merged;
+        }
+        ISAAC_ASSERT_MSG(end() - 1 == current, "Did not reach the end." << std::distance(begin(), current) << "/" << size());
+        ISAAC_ASSERT_MSG(!current->dataSize_, "Expected last chunk to be empty: " << *current << " for " << *this);
+        std::for_each(merged, end(), &BinChunk::reset);
+        ISAAC_THREAD_CERR << "increased chunkSize to " << chunkSize_ << " from " << oldChunkSize << " for newBinLength: " << newBinLength << " last:" << back() << std::endl;
     }
 
     uint64_t addBytes(uint64_t binGenomicOffset, unsigned count);
@@ -153,7 +217,7 @@ public:
 
     /// if distributionChunksCount is 0, assume extremely large chunk to ensure that all data fits into chunk 0
     static uint64_t getChunkSize(
-        uint64_t length,
+        const uint64_t length,
         const unsigned distributionChunksCount)
         {return distributionChunksCount ?  std::max(1UL, length / distributionChunksCount) : -1UL;}
 
@@ -386,7 +450,12 @@ public:
     uint64_t getDataDistributionKey(const uint64_t clusterNumber)
     {
         ISAAC_ASSERT_MSG(isUnalignedBin(), "Aligned bins must use ReferencePosition as hash key." << *this);
-        return clusterNumber % length_;
+        if (clusterNumber >= length_)
+        {
+            length_ *= 2;
+            dataDistribution_.makeChunksBigger(length_);
+        }
+        return clusterNumber;
     }
 
     uint64_t getDataDistributionKey(const reference::ReferencePosition pos)
@@ -561,10 +630,10 @@ inline BinDataDistribution &BinDataDistribution::operator =(const BinDataDistrib
     return *this;
 }
 
-inline std::size_t BinDataDistribution::getIndex(uint64_t binGenomicOffset) const
+inline std::size_t BinDataDistribution::getIndex(uint64_t key) const
 {
-    std::size_t ret = binGenomicOffset / getChunkSize();
-    ISAAC_ASSERT_MSG(size() > ret, "chunk index " << ret << " for offset " << binGenomicOffset << "is too big");
+    std::size_t ret = key / getChunkSize();
+    ISAAC_ASSERT_MSG(size() > ret, "chunk index " << ret << " for offset " << key << "is too big " << *this);
     return ret;
 }
 
@@ -618,6 +687,7 @@ inline uint64_t BinDataDistribution::removeChunksBefore(const uint64_t minOffset
     std::vector<BinChunk>::iterator e = begin();
     for (; end() != e && minOffset > offset; ++e)
     {
+        ISAAC_THREAD_CERR << "removeChunksBefore minOffset: " << minOffset << " " << *e << std::endl;
         offset += e->dataSize_;
     }
 

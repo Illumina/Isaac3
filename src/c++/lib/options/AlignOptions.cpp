@@ -41,6 +41,7 @@
 #include "alignOptions/BclFlowcell.hh"
 #include "alignOptions/FastqFlowcell.hh"
 #include "alignOptions/DefaultAdaptersOption.hh"
+#include "alignOptions/UseBasesMaskOption.hh"
 
 namespace isaac
 {
@@ -116,20 +117,20 @@ AlignOptions::AlignOptions()
     , perTileTls(false)
     , pfOnly(true)
     , allowEmptyFlowcells_(false)
-    , baseQualityCutoff(25) //Illumina data is normally good enough for high cutoff.
+    , baseQualityCutoff(15) //Illumina data is normally good enough for high cutoff.
     , keepUnalignedString("back")
     , keepUnaligned(false)
     , preSortBins(true) // on genomes with decent number of contigs this speeds up bam generation by increasing memory locality
-                        // of the loaded fragments. However, on metagenmoics references this causes enormous amount of entries
+                        // of the loaded fragments. However, on metagenomics references this causes enormous amount of entries
                         // in bin metadata data distribution
     , preAllocateBins(false) //off by default as on genomes with large number of tiny contigs (such as hg38) it happens to consume terabytes of temp disk space
     , putUnalignedInTheBack(false)
     , realignGapsVigorously(false)
-    , realignDodgyFragments(false) // true slows down pileups on DNA but seems to clear up picture significantly in RNA
+    , realignDodgyFragments(false) // true slows down pile-ups on DNA but seems to clear up picture significantly in RNA
     , realignedGapsPerFragment(2)
     , clipSemialigned(false) // Note that GATK jumps to 9000 conflict from 5000 if clipSemialigned is off
     , clipOverlapping(true)
-    , scatterRepeats(false)
+    , scatterRepeats(true)
     , rescueShadows(true)
     , gappedMismatchesMax(5)
     , smitWatermanGapsMax(2)
@@ -143,7 +144,7 @@ AlignOptions::AlignOptions()
     , gapOpenScore(0)
     , gapExtendScore(0)
     , minGapExtendScore(0)
-    , splitGapLength(-1U) //Note that if splitGapLength > ~100 GATK 1.6 and above fails with
+    , splitGapLength(10000U) //Note that if splitGapLength > ~100 GATK 1.6 and above fails with
                     //##### ERROR MESSAGE: Somehow the requested coordinate is not covered by the read. Too many deletions?
     , dodgyAlignmentScoreString("0")
     , dodgyAlignmentScore(0)
@@ -172,7 +173,7 @@ AlignOptions::AlignOptions()
     , anchorMate(true)
     , binRegexString("all")
     , userTemplateLengthStatistics()
-    , statsImageFormatString("gif")
+    , statsImageFormatString("none")
     , statsImageFormat(reports::AlignmentReportGenerator::gif)
     , bufferBins(true)
     , qScoreBin(false)
@@ -256,7 +257,7 @@ AlignOptions::AlignOptions()
         ("bam-produce-md5"     , bpo::value<bool>(&bamProduceMd5)->default_value(bamProduceMd5),
                 "Controls whether a separate file containing md5 checksum is produced for each output bam.")
         ("bam-pu-format"           , bpo::value<std::string>(&bamPuFormat)->default_value(bamPuFormat),
-                "Template string for bam header RG tag PU field. Oridnary characters are directly copied. The following placeholders are supported:"
+                "Template string for bam header RG tag PU field. Ordinary characters are directly copied. The following placeholders are supported:"
                 "\n  - %F             : Flowcell ID"
                 "\n  - %L             : Lane number"
                 "\n  - %B             : Barcode")
@@ -269,7 +270,7 @@ AlignOptions::AlignOptions()
                 ("Comma-separated list of regular tags to exclude from the output BAM files. Allowed values are: all,none," + boost::join(SUPPORTED_BAM_EXCLUDE_TAGS, ",")).c_str())
         ("bam-pessimistic-mapq"     , bpo::value<bool>(&pessimisticMapQ)->default_value(pessimisticMapQ),
                 "When set, the MAPQ is computed as MAPQ:=min(60, min(SM, AS)), otherwise MAPQ:=min(60, max(SM, AS))")
-        ("description"              , bpo::value<std::string>(&description), "Freeform text to be stored in the iSAAC @PG DS bam header tag")
+        ("description"              , bpo::value<std::string>(&description), "Free form text to be stored in the iSAAC @PG DS bam header tag")
         ("tiles"                    , bpo::value<std::vector<std::string> >(&tilesFilterList),
                 "Comma-separated list of regular expressions to select only a subset of the tiles available in the flow-cell."
                 "\n- to select all the tiles ending with '5' in all lanes: --tiles [0-9][0-9][0-9]5"
@@ -281,7 +282,7 @@ AlignOptions::AlignOptions()
                 "\n  - N or n          : discard"
                 "\n  - I or i          : use for indexing"
                 "\n"
-                "\nIf not given, the mask will be guessed from the B<config.xml> file in the base-calls directory."
+                "\nIf not given, the mask will be guessed from the config.xml file in the base-calls directory."
                 "\n"
                 "\nFor instance, in a 2x76 indexed paired end run, the mask I<Y76,I6n,y75n> means:"
                 "\n  use all 76 bases from the first end, discard the last base of the indexing read, and "
@@ -291,7 +292,7 @@ AlignOptions::AlignOptions()
                 "A list-of-seeds is a colon-separated list of offsets from the beginning of the read. "
                 "\nExamples:"
                 "\n  - all             : seed at every cycle of the read"
-                "\n  - auto            : automatic choice of seeds based on --semialigned-strategy parameter"
+                "\n  - auto            : starting at each extremity of the read take pair of non-overlapping 32-mers, recursively repeat"
                 "\n  - step=X          : seed every X cycles of the read"
                 "\n  - 0:32,0:32:64    : two seeds on the first read (at offsets 0 and 32) "
                 "and three seeds on the second read (at offsets 0, 32, and 64) and on subsequent reads."
@@ -328,9 +329,9 @@ AlignOptions::AlignOptions()
         ("jobs,j"                   , bpo::value<unsigned int>(&jobs)->default_value(jobs),
                 "Maximum number of compute threads to run in parallel")
         ("enable-numa"                   , bpo::value<bool>(&enableNuma)->default_value(enableNuma)->implicit_value(true),
-                "Replilcate static data across NUMA nodes, lock threads to their NUMA nodes, allocate thread private data on the corresponding NUMA node")
+                "Replicate static data across NUMA nodes, lock threads to their NUMA nodes, allocate thread private data on the corresponding NUMA node")
         ("seed-base-quality-min"                   , bpo::value<unsigned int>(&seedBaseQualityMin)->default_value(seedBaseQualityMin),
-                "Miminum base quality for the seed to be used in alignment candidate search.")
+                "Minimum base quality for the seed to be used in alignment candidate search.")
         ("input-concurrent-load"            , bpo::value<unsigned>(&inputLoadersMax)->default_value(inputLoadersMax),
                 "Maximum number of concurrent file read operations for --base-calls")
         ("temp-concurrent-load"            , bpo::value<unsigned>(&tempLoadersMax)->default_value(tempLoadersMax),
@@ -377,12 +378,6 @@ AlignOptions::AlignOptions()
         ("clusters-at-a-time"         , bpo::value<unsigned>(&clustersAtATimeMax)->default_value(clustersAtATimeMax),
                 "Bam and fastq only. When not set, number of clusters to process together when input is bam or fastq is computed "
                 "automatically based on the amount of available RAM. Set to non-zero value to force deterministic behavior.")
-//        ("ignore-neighbors"         , bpo::value<bool>(&ignoreNeighbors)->default_value(ignoreNeighbors),
-//                "When not set, MatchFinder will ignore perfect seed matches during single-seed pass, "
-//                "if the reference k-mer is known to have neighbors.")
-//        ("ignore-repeats"         , bpo::value<bool>(&ignoreRepeats)->default_value(ignoreRepeats),
-//                "Normally exact repeat matches prevent inexact seed matching. If this flag is set, inexact "
-//                "matches will be considered even for the seeds that match to repeats.")
         ("mapq-threshold"           , bpo::value<unsigned>(&mapqThreshold)->default_value(mapqThreshold),
                 "Threshold used to filter the templates based on their mapping quality: the BAM file will only "
                 "contain the templates with a mapping quality greater than or equal to the threshold. Templates "
@@ -532,7 +527,7 @@ AlignOptions::AlignOptions()
         ("remap-qscores"   , bpo::value<std::string>(&qScoreBinValueString),
                 "Replace the base calls qscores according to the rules provided."
                 "\n - identity   : No remapping. Original qscores are preserved"
-                "\n - bin:8      : Equilvalent of " BIN_8_QSCORE_MAP)
+                "\n - bin:8      : Equivalent of " BIN_8_QSCORE_MAP)
         ;
 }
 
@@ -1274,7 +1269,7 @@ void AlignOptions::postProcess(bpo::variables_map &vm)
                 laneNumberMax,
                 readNameLength,
                 useBasesMaskList.at(i),
-                allowVariableReadLength,
+                allowVariableReadLength || !isWildcardUseBasesMask(useBasesMaskList.at(i)),
                 fastqQ0,
                 seedDescriptor, seedLength, referenceMetadataList) :
             flowcell::Layout::Bam == baseCallsFormatList.at(i).first ?
@@ -1284,7 +1279,7 @@ void AlignOptions::postProcess(bpo::variables_map &vm)
                 laneNumberMax,
                 readNameLength,
                 useBasesMaskList.at(i),
-                allowVariableReadLength,
+                allowVariableReadLength || !isWildcardUseBasesMask(useBasesMaskList.at(i)),
                 seedDescriptor, seedLength, referenceMetadataList) :
             alignOptions::BclFlowcell::createFilteredFlowcell(
                 tilesFilterList.at(i),

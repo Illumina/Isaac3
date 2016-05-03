@@ -178,7 +178,7 @@ public:
         const isaac::alignment::Anchor firstAnchor = fragmentMetadata.firstAnchor_;
         const isaac::alignment::Anchor lastAnchor = fragmentMetadata.lastAnchor_;
         unsigned ret = isaac::alignment::fragmentBuilder::SplitReadAligner::updateFragmentCigar(
-            readMetadataList[0], contigList, kUniqueAnnotations, fragmentMetadata, contigId, strandPosition, cigarBuffer, cigarOffset);
+            readMetadataList[0], contigList, kUniqueAnnotations, fragmentMetadata, fragmentMetadata.reverse, contigId, strandPosition, cigarBuffer, cigarOffset);
 
         if (!firstAnchor.empty() || firstAnchor.kUnique_)
         {

@@ -31,10 +31,18 @@ struct BamFilePathAttributeTag
     typedef boost::filesystem::path value_type;
     friend std::ostream &operator << (std::ostream &os, const BamFilePathAttributeTag &tag){return os << "BamFilePathAttributeTag";}
 };
-
 template<>
-const boost::filesystem::path & Layout::getAttribute<Layout::Bam, BamFilePathAttributeTag>(
-    boost::filesystem::path &result) const;
+const boost::filesystem::path & Layout::getAttribute<Layout::Bam, BamFilePathAttributeTag>(boost::filesystem::path &result) const;
+
+struct BamVariableLengthOk
+{
+    typedef bool value_type;
+    friend std::ostream &operator << (std::ostream &os, const BamVariableLengthOk &tag){return os << "BamVariableLengthOk";}
+};
+template<>
+const BamVariableLengthOk::value_type & Layout::getAttribute<Layout::Bam, BamVariableLengthOk>(BamVariableLengthOk::value_type &result) const;
+
+
 
 } // namespace flowcell
 } // namespace isaac

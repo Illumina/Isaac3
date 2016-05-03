@@ -55,6 +55,7 @@ protected:
         const reference::ContigList &contigList,
         const isaac::reference::ContigAnnotations &contigAnnotations,
         FragmentMetadata &fragmentMetadata,
+        const bool reverse,
         const unsigned contigId,
         const int64_t strandPosition,
         const Cigar &cigarBuffer,

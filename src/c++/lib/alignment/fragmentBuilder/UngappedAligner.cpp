@@ -84,7 +84,7 @@ unsigned UngappedAligner::alignUngapped(
 
     const unsigned ret = updateFragmentCigar(
         readMetadata, contigList, contigAnnotations, fragmentMetadata,
-        fragmentMetadata.contigId, fragmentMetadata.position, cigarBuffer, cigarOffset);
+        fragmentMetadata.reverse, fragmentMetadata.contigId, fragmentMetadata.position, cigarBuffer, cigarOffset);
 
     if (!ret)
     {

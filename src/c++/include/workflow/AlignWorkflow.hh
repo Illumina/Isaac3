@@ -84,7 +84,6 @@ public:
         const std::vector<flowcell::Layout> &flowcellLayoutList,
         const unsigned seedLength,
         const flowcell::BarcodeMetadataList &barcodeMetadataList,
-        const bool allowVariableFastqLength,
         const bool cleanupIntermediary,
         const unsigned bclTilesPerChunk,
         const bool ignoreMissingBcls,
@@ -219,7 +218,6 @@ private:
     const bool ignoreRepeats_;
     const std::vector<std::size_t> &clusterIdList_;
     const flowcell::BarcodeMetadataList &barcodeMetadataList_;
-    const bool allowVariableFastqLength_;
     const bool cleanupIntermediary_;
     const unsigned bclTilesPerChunk_;
     const bool ignoreMissingBcls_;

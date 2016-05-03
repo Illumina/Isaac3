@@ -7,7 +7,7 @@ Directory structure:
 The 'include' and 'lib' directories are subdivided into several libraries:
 - common: general-purpose components that are common to all programs
 - options: the program options for all programs
-- io: al IO-related components
+- io: all IO-related components
 - oligo: basic handling of nucleotides (individually or in short sequences)
 - flowcell: interface to extract flowcell information (config, layout, etc.)
 - reference: processing and handling of the reference genome
@@ -31,7 +31,7 @@ To create new unit test cases:
 - use lib/common/cppunit/testExceptions.{hh,cpp} as a reference
 - register the test case under a name declared in the RegistryNames.txt
 - create source files (.hh and .cpp) starting with 'test'
-- name the test case after the compenent to test if possible
+- name the test case after the component to test if possible
 - avoid IOs unless absolutely necessary (use string streams instead)
 - avoid modifying the cppunit/CMakeLists.txt unless absolutely necessary
 

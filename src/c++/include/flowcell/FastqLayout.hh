@@ -45,21 +45,30 @@ struct FastqFilePathAttributeTag
     typedef boost::filesystem::path value_type;
     friend std::ostream &operator << (std::ostream &os, const FastqFilePathAttributeTag &tag){return os << "FastqFilePathAttributeTag";}
 };
+template<>
+const FastqFilePathAttributeTag::value_type & Layout::getLaneReadAttribute<Layout::Fastq, FastqFilePathAttributeTag>(
+    const unsigned lane, const unsigned read, FastqFilePathAttributeTag::value_type &result) const;
+
 
 struct FastqBaseQ0
 {
     typedef char value_type;
     friend std::ostream &operator << (std::ostream &os, const FastqBaseQ0 &tag){return os << "FastqBaseQ0";}
 };
-
-
-template<>
-const boost::filesystem::path & Layout::getLaneReadAttribute<Layout::Fastq, FastqFilePathAttributeTag>(
-    const unsigned lane, const unsigned read, boost::filesystem::path &result) const;
-
 template<>
 const FastqBaseQ0::value_type & Layout::getAttribute<Layout::Fastq, FastqBaseQ0>(
     FastqBaseQ0::value_type &result) const;
+
+
+struct FastqVariableLengthOk
+{
+    typedef bool value_type;
+    friend std::ostream &operator << (std::ostream &os, const FastqVariableLengthOk &tag){return os << "FastqVariableLengthOk";}
+};
+template<>
+const FastqVariableLengthOk::value_type & Layout::getAttribute<Layout::Fastq, FastqVariableLengthOk>(
+    FastqVariableLengthOk::value_type &result) const;
+
 
 template<>
 inline boost::filesystem::path Layout::getLongestAttribute<Layout::Fastq, FastqFilePathAttributeTag>() const

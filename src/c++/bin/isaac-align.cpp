@@ -64,7 +64,6 @@ void align(const isaac::options::AlignOptions &options)
         options.flowcellLayoutList,
         options.seedLength,
         options.barcodeMetadataList,
-        options.allowVariableReadLength,
         options.cleanupIntermediary,
         options.bclTilesPerChunk,
         options.ignoreMissingBcls,

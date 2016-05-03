@@ -28,6 +28,8 @@ namespace fragmentBuilder
 const unsigned short GappedAligner::UNINITIALIZED_OFFSET_MAGIC;
 const unsigned short GappedAligner::REPEAT_OFFSET_MAGIC;
 
+static std::vector<char> initVector;
+
 GappedAligner::GappedAligner(
     const bool collectMismatchCycles,
     const flowcell::FlowcellLayoutList &flowcellLayoutList,
@@ -40,8 +42,11 @@ GappedAligner::GappedAligner(
     , hashedQueryTile_(2, -1U)
     , hashedQueryCluster_(2, -1U)
     , hashedQueryReadIndex_(2, -1U)
-    , queryKmerOffsets_(oligo::MaxKmer<HASH_KMER_LENGTH, unsigned short>::value + 1, UNINITIALIZED_OFFSET_MAGIC)
+    , hashedQueryBegin_(2, initVector.begin())
+    , hashedQueryEnd_(2, initVector.begin())
 {
+    queryKmerOffsets_[0].resize(oligo::MaxKmer<HASH_KMER_LENGTH, unsigned short>::value + 1, UNINITIALIZED_OFFSET_MAGIC);
+    queryKmerOffsets_[1].resize(oligo::MaxKmer<HASH_KMER_LENGTH, unsigned short>::value + 1, UNINITIALIZED_OFFSET_MAGIC);
 }
 
 /// calculate the left and right flanks of the database WRT the query
@@ -90,24 +95,24 @@ bool GappedAligner::makesSenseToGapAlign(
     const reference::Contig::const_iterator databaseEnd)
 {
     if (hashedQueryTile_[reverse] != tile || hashedQueryCluster_[reverse] != cluster ||
-        hashedQueryReadIndex_[reverse] != read)
+        hashedQueryReadIndex_[reverse] != read || hashedQueryBegin_[reverse] != queryBegin || hashedQueryEnd_[reverse] != queryEnd)
     {
         oligo::KmerGenerator<HASH_KMER_LENGTH, unsigned, std::vector<char>::const_iterator> queryKmerGenerator(queryBegin, queryEnd);
-        std::fill(queryKmerOffsets_.begin(), queryKmerOffsets_.end(), UNINITIALIZED_OFFSET_MAGIC);
+        std::fill(queryKmerOffsets_[reverse].begin(), queryKmerOffsets_[reverse].end(), UNINITIALIZED_OFFSET_MAGIC);
         unsigned uniqueCount = 0;
         unsigned repeatCount = 0;
         unsigned kmer;
         std::vector<char>::const_iterator queryIt;
         while (queryKmerGenerator.next(kmer, queryIt))
         {
-            if (UNINITIALIZED_OFFSET_MAGIC == queryKmerOffsets_[kmer])
+            if (UNINITIALIZED_OFFSET_MAGIC == queryKmerOffsets_[reverse][kmer])
             {
-                queryKmerOffsets_[kmer] = (queryIt - queryBegin);
+                queryKmerOffsets_[reverse][kmer] = (queryIt - queryBegin);
                 ++uniqueCount;
             }
             else
             {
-                queryKmerOffsets_[kmer] = REPEAT_OFFSET_MAGIC;
+                queryKmerOffsets_[reverse][kmer] = REPEAT_OFFSET_MAGIC;
                 ++repeatCount;
                 --uniqueCount;
             }
@@ -115,6 +120,8 @@ bool GappedAligner::makesSenseToGapAlign(
         hashedQueryTile_[reverse] = tile;
         hashedQueryCluster_[reverse] = cluster;
         hashedQueryReadIndex_[reverse] = read;
+        hashedQueryBegin_[reverse] = queryBegin;
+        hashedQueryEnd_[reverse] = queryEnd;
     }
 
     // counts of corresponding offsets of the first base of the data from the first base of the reference
@@ -132,7 +139,7 @@ bool GappedAligner::makesSenseToGapAlign(
     unsigned kmer;
     while (databaseKmerGenerator.next(kmer, databaseIt))
     {
-        const int queryOffset = queryKmerOffsets_[kmer];
+        const int queryOffset = queryKmerOffsets_[reverse][kmer];
         if (REPEAT_OFFSET_MAGIC == queryOffset)
         {
             // Ambiguous mapping between reference and data,
@@ -258,8 +265,9 @@ unsigned GappedAligner::alignGapped(
 //    ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(fragmentMetadata.getCluster().getId(), "gapped CIGAR: " <<
 //                                           alignment::Cigar::toString(cigarBuffer.begin() + cigarOffset, cigarBuffer.end()) << " strandPosition:"<<strandPosition);
 
-    const unsigned matchCount = updateFragmentCigar(readMetadata, contigList, kUniqenessAnnotation, fragmentMetadata,
-                                                    fragmentMetadata.contigId, strandPosition, cigarBuffer, cigarOffset);
+    const unsigned matchCount = updateFragmentCigar(
+        readMetadata, contigList, kUniqenessAnnotation, fragmentMetadata,
+        fragmentMetadata.reverse, fragmentMetadata.contigId, strandPosition, cigarBuffer, cigarOffset);
 
     return matchCount;
 }

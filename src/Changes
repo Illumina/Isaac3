@@ -1,3 +1,33 @@
+iSAAC-03.16.04.27
+* SAAC-919 autovectorizing smith waterman implementation
+* SAAC-930 seed choice clarification
+
+iSAAC-03.16.04.06
+* SAAC-925 --use-smith-waterman smart crashes when one of the mates is shorter or clipped
+
+iSAAC-03.16.03.30
+* SAAC-922 bam generation crashes with phix input that has about 50% reads failing to align
+
+iSAAC-03.16.03.29
+* SAAC-920 AVX2 intrinsics for BandedSmithWaterman
+* SAAC-921 Incorrect comparison of gap priority in gap realigner
+
+iSAAC-03.16.03.14
+* SAAC-917 --gap-scoring bwa-mem fails with assertion
+
+iSAAC-03.16.03.11
+* SAAC-915 Update default settings for command-line arguments
+* SAAC-916 Fix command-line option descriptions
+
+iSAAC-03.16.03.09
+* SAAC-914 SSE2 Smith-Waterman uses wrong intrinsic to compare strings of bytes
+
+iSAAC-03.16.03.04
+* SAAC-913 Running out of CIGAR buffer in gap realignment on RNA
+
+iSAAC-03.16.02.20
+* SAAC-910 more than one bam file as input causes a failure
+
 iSAAC-03.16.02.19
 * SAAC-909 Mismatching number of clusters read for r1/r2 from bgzf-compressed fastq when zcat|wc -l shows number of reads match
 
@@ -42,7 +72,7 @@ iSAAC-03.15.11.29
 * SAAC-892 update user guide for iSAAC-03
 
 iSAAC-03.15.11.19
-* SAAC-888 assertion failure when --bam-exlude-tags none is used with fastq or bam input
+* SAAC-888 assertion failure when --bam-exclude-tags none is used with fastq or bam input
 
 iSAAC-03.15.11.11
 * SAAC-883 qscore-bin does not work
@@ -352,7 +382,7 @@ iSAAC-02.14.09.30
 
 iSAAC-02.14.09.26
 * SAAC-731 assertion failure in SplitReadAligner when the best insertion location is at the start of the read
-* SAAC-729 Suboptimal pairs chosen due to smaller gaps
+* SAAC-729 Sub-optimal pairs chosen due to smaller gaps
 
 iSAAC-02.14.09.25
 * SAAC-731 assertion failure in SplitReadAligner when the best insertion location is at the start of the read
@@ -363,7 +393,7 @@ iSAAC-02.14.09.11
 * SAAC-728 gap realignment changes clipping so that read part is outside end of the contig
 
 iSAAC-02.14.09.08
-* SAAC-159 Higly-covered small genomes produce oversized bins that don't fit in RAM at the point of bam making
+* SAAC-159 Highly-covered small genomes produce oversized bins that don't fit in RAM at the point of bam making
 
 iSAAC-02.14.09.01
 * SAAC-725 0D in the CIGAR
@@ -376,7 +406,7 @@ iSAAC-02.14.08.06
 * SAAC-722 2uniqueness file contains only values of 0 and 65556 at the end of the reference building
 
 iSAAC-02.14.08.04
-* SAAC-721 sorted-reference.xml reffers to incorrect path for kmer files
+* SAAC-721 sorted-reference.xml refers to incorrect path for kmer files
 
 iSAAC-02.14.08.01
 * SAAC-718 --smith-waterman-gaps-max 5 combined with --gap-scoring 1:-4:-6:-1:-20 triggers a failure in Gap realigner
@@ -531,7 +561,7 @@ iSAAC-02.14.02.06
 iSAAC-01.14.02.06
 * SAAC-639 boost is not built with gcc specified by CXX
 * SAAC-638 cmake search for cppunit/Test.h fails on centos 6
-* SAAC-636 print command line help orderd by option long name
+* SAAC-636 print command line help ordered by option long name
 
 iSAAC-01.14.02.05
 * SAAC-518 confusing failures when --use-bases-mask forces more cycles than there is in the read
@@ -569,7 +599,7 @@ iSAAC-01.13.12.21
 
 iSAAC-01.13.12.20
 * SAAC-618 bcl-bgzf Lanes 3 and 4 are not present in iSAAC output
-* SAAC-611 Memory conrol failure when tiles are filtered with bcl-bgzf data
+* SAAC-611 Memory control failure when tiles are filtered with bcl-bgzf data
 * SAAC-610 Cygwin compatibility
 
 iSAAC-01.13.12.09
@@ -623,7 +653,7 @@ iSAAC-01.13.09.13
 iSAAC-01.13.09.09
 * SAAC-567 When running from bam, last portion of unpaired reads turns into NNNNNN
 * SAAC-568 --tls argument results in different shadow rescue range than when same template is computed from data
-* SAAC-566 realignment places macthing part of CIGAR outside the reference contig end
+* SAAC-566 realignment places matching part of CIGAR outside the reference contig end
 * SAAC-562 Unsafe zlib memory management
 
 iSAAC-01.13.07.25
@@ -906,7 +936,7 @@ iSAAC-00.12.10.02
 
 iSAAC-00.12.09.27
 * SAAC-352 Allow unaligned data to be placed at the end of the BAM file 
-* SAAC-349 Parallelise BAM indexing 
+* SAAC-349 Parallelize BAM indexing 
 * SAAC-356 Unaligned data compression takes many hours.
 * SAAC-337 Increase memory access locality for Bam generation
 * SAAC-301 faster bam generation
@@ -942,7 +972,7 @@ iSAAC-00.12.07.25
 * SAAC-303 Gap realignment destroys original clipping
 * SAAC-294 Semialigned ends soft clipping
 * SAAC-292 Bin filtering for bam generation (debug feature)
-* SAAC-290 Treat artificially lowererd mapping quality reads separately form real mapq 0 reads
+* SAAC-290 Treat artificially lowered mapping quality reads separately form real mapq 0 reads
 * SAAC-288 Correctly account for disjointed template candidates and rediscovered shadow probabilities
 * SAAC-261 Scatter repeat alignments across all candidate locations
 
@@ -962,7 +992,7 @@ iSAAC-00.12.07.09
 
 iSAAC-00.12.07.03
 * SAAC-293 Crash during bam generation when sample sheet with barcodes is used.
-* SAAC-291 Bam memory estimation incorrectly fails on the firs bin (unaligned) and does not check the last bin memory requirement
+* SAAC-291 Bam memory estimation incorrectly fails on the first bin (unaligned) and does not check the last bin memory requirement
 
 iSAAC-00.12.06.26
 * SAAC-263 Trim low quality bases at the end of the read
@@ -1020,7 +1050,7 @@ iSAAC-00.12.05.04
 * SAAC-248 non-zero --neighborhood-size-threshold breaks MatchSelector
 
 iSAAC-00.12.04.27
-* SAAC-246 CASAVA interation realigned bam files are not transferred into the output location
+* SAAC-246 CASAVA integration realigned bam files are not transferred into the output location
 * SAAC-245 CASAVA integration notMapped directory crashes transfer of results due to missing Indel folder in it
 * SAAC-242 Alignment scores for rescued reads are often overestimated
 * SAAC-243 N-containing reads get misplaced
@@ -1038,7 +1068,7 @@ iSAAC-00.12.04.11
 * SAAC-231 Transfer Indels folders content into output tree
 
 iSAAC-00.12.04.10
-* SAAC-230 Comma after the colum heading in MiSeq sample sheet causes incomprehensible failure message
+* SAAC-230 Comma after the column heading in MiSeq sample sheet causes incomprehensible failure message
 * SAAC-221 Short indel realignment
 * SAAC-227 samtools view -H produces binary zero between last @RG end and first @SQ
 * SAAC-226 Generated Reads.idx flowcell names column is empty
@@ -1093,7 +1123,7 @@ iSAAC-00.12.04.10
 * SAAC-166 bam proper pair flag is set for chimeric templates
 * SAAC-137 Add the @PG tags in the header of the BAM file
 * SAAC-162 Relative --prefix during installation breaks alignment report generation at runtime
-* SAAC-167 confusing failure when using use base mask that is incompatible with the nubmer of reads in BaseCalls/config.xml
+* SAAC-167 confusing failure when using use base mask that is incompatible with the number of reads in BaseCalls/config.xml
 * SAAC-165 iSAAC must allow processing compressed bcl data
 * SAAC-164 Duplicate removal must not cross lane-barcode boundary
 * SAAC-163 Integrated CASAVA variant calling
@@ -1116,7 +1146,7 @@ iSAAC-00.12.04.10
 * SAAC-97 The quality scores calculated by the shadow aligner do not take into account multiple matches
 * SAAC-114 missing bam AS tag causes grouper to go bad
 * SAAC-111 Set the mapq of chimeric templates to the alignment score of the individual fragments
-* SAAC-109 Disjoined templates where one mate has a quality less than the mapq threshold should be reported as orphans
+* SAAC-109 Disjointed templates where one mate has a quality less than the mapq threshold should be reported as orphans
 * SAAC-110 The log-probability for mismatches is incorrect
 * SAAC-107 Add a command line option to control the number of mismatches allowed after gap-alignment
 * SAAC 106 Set the mapq to the SM for singletons.
@@ -1148,12 +1178,12 @@ iSAAC-00.12.04.10
 * SAAC-78 Add debugging functionalities to help understanding the root cause of poor alignments
 * SAAC-76 Implement Build memory control
 * SAAC-77 The matches are incorrectly sorted, which results into duplicate fragments
-* SAAC-75 Mark all the reverse-complement of k-mers with neighbors as habing neighbors
+* SAAC-75 Mark all the reverse-complement of k-mers with neighbors as having neighbors
 * SAAC-68 Add support for mismatches in the suffix of the seeds
 * SAAC-69 Implement MatchSelector memory control
 * SAAC-74 Store in the SortedReference.xml file the largest count of positions with the same 16-mer prefix
 * SAAC-73 Detect the existence of non-exact neighbors during the exact match finding
-* SAAC-67 Add the suffix neighbourhood information into the sorted reference
+* SAAC-67 Add the suffix neighborhood information into the sorted reference
 * SAAC-70 make sure crashes produce meaningful logs and core dumps
 * SAAC-57 MatchFinder memory control does not account for foundMatches_
 * SAAC-46 Add support for gapped-alignments

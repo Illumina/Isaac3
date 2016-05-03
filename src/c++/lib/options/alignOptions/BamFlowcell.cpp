@@ -246,7 +246,7 @@ flowcell::Layout BamFlowcell::createFilteredFlowcell(
 
     flowcell::Layout fc(baseCallsDirectory,
                         flowcell::Layout::Bam,
-                        flowcell::BamFlowcellData(),
+                        flowcell::BamFlowcellData(allowVariableReadLength),
                         laneNumberMax,
                         flowcellInfo.readNameLength_,
                         std::vector<unsigned>(),

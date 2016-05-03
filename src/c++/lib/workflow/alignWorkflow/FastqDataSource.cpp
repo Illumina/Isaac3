@@ -28,7 +28,6 @@ namespace alignWorkflow
 
 FastqBaseCallsSource::FastqBaseCallsSource(
     const unsigned clustersAtATimeMax,
-    const bool allowVariableLength,
     const unsigned coresMax,
     const flowcell::BarcodeMetadataList &barcodeMetadataList,
     const flowcell::Layout &fastqFlowcellLayout,
@@ -42,7 +41,7 @@ FastqBaseCallsSource::FastqBaseCallsSource(
         lanes_(fastqFlowcellLayout.getLaneIds()),
         currentLaneIterator_(lanes_.begin()),
         currentTile_(1),
-        fastqLoader_(allowVariableLength, 0, threads, coresMax_)
+        fastqLoader_(fastqFlowcellLayout_.getAttribute<flowcell::Layout::Fastq, flowcell::FastqVariableLengthOk>(), 0, threads, coresMax_)
 
 {
 }

@@ -57,7 +57,6 @@ AlignWorkflow::AlignWorkflow(
     const std::vector<flowcell::Layout> &flowcellLayoutList,
     const unsigned seedLength,
     const flowcell::BarcodeMetadataList &barcodeMetadataList,
-    const bool allowVariableFastqLength,
     const bool cleanupIntermediary,
     const unsigned bclTilesPerChunk,
     const bool ignoreMissingBcls,
@@ -146,7 +145,6 @@ AlignWorkflow::AlignWorkflow(
     , ignoreRepeats_(ignoreRepeats)
     , clusterIdList_(clusterIdList)
     , barcodeMetadataList_(barcodeMetadataList)
-    , allowVariableFastqLength_(allowVariableFastqLength)
     , cleanupIntermediary_(cleanupIntermediary)
     , bclTilesPerChunk_(bclTilesPerChunk)
     , ignoreMissingBcls_(ignoreMissingBcls)
@@ -248,7 +246,6 @@ void AlignWorkflow::findMatches(
     alignWorkflow::FindHashMatchesTransition findMatchesTransition(
         flowcellLayoutList_,
         barcodeMetadataList_,
-        allowVariableFastqLength_,
         cleanupIntermediary_,
         bclTilesPerChunk_,
         ignoreMissingBcls_,

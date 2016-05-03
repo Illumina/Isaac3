@@ -122,6 +122,7 @@ unsigned AlignerBase::updateFragmentCigar(
     const reference::ContigList &contigList,
     const isaac::reference::ContigAnnotations &contigAnnotations,
     FragmentMetadata &fragmentMetadata,
+    const bool reverse,
     unsigned contigId,
     const int64_t strandPosition,
     const Cigar &cigarBuffer,
@@ -132,7 +133,7 @@ unsigned AlignerBase::updateFragmentCigar(
         alignmentCfg_,
         readMetadata,
         contigList, contigAnnotations,
-        contigId, strandPosition,
+        reverse, contigId, strandPosition,
         cigarBuffer, cigarOffset);
 }
 

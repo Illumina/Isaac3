@@ -134,11 +134,19 @@ include_directories(BEFORE SYSTEM ${LIBXSLT_INCLUDE_DIR})
 include_directories(BEFORE SYSTEM ${LIBEXSLT_INCLUDE_DIR})
 set(iSAAC_DEP_LIB ${iSAAC_DEP_LIB} "${LIBEXSLT_LIBRARIES}" "${LIBXSLT_LIBRARIES}" "${LIBXML2_LIBRARIES}")
 
-set (CMAKE_CXX_FLAGS "$ENV{CXX_FLAGS} $ENV{CXXFLAGS} -fopenmp -msse2 -Wall -Wextra -Wunused -Wno-long-long -Wsign-compare -Wpointer-arith -DBOOST_SYSTEM_API_CONFIG_HPP -DBOOST_POSIX_API " CACHE STRING "g++ flags" FORCE)
+if(NOT iSAAC_AVX2)
+  set(iSAAC_VECTORIZATION "-msse2")
+else(NOT iSAAC_AVX2)
+  set(iSAAC_VECTORIZATION "-mavx2")
+endif(NOT iSAAC_AVX2)
+
+set (CMAKE_CXX_FLAGS "$ENV{CXX_FLAGS} $ENV{CXXFLAGS} -fopenmp ${iSAAC_VECTORIZATION} -Wall -Wextra -Wunused -Wno-long-long -Wsign-compare -Wpointer-arith -DBOOST_SYSTEM_API_CONFIG_HPP -DBOOST_POSIX_API " CACHE STRING "g++ flags" FORCE)
+# -03 causes loop unrolling that prevent autovectorization of some parts of BandedSmithWaterman
+set (iSAAC_CXX_OPTIMIZATION_FLAGS "-O2 -ftree-vectorize -finline-functions -fpredictive-commoning -fpredictive-commoning -fgcse-after-reload -funswitch-loops -ftree-slp-vectorize -fvect-cost-model -fipa-cp-clone  -ftree-phiprop")
 #set (CMAKE_CXX_FLAGS_DEBUG "-O0 -g -pg -std=c++0x -fprofile-arcs -ftest-coverage -D_GLIBCXX_DEBUG" CACHE STRING "g++ flags" FORCE)
-set (CMAKE_CXX_FLAGS_DEBUG "-O3 -ggdb -std=gnu++0x -D_GLIBCXX_DEBUG=1 -pedantic" CACHE STRING "g++ flags" FORCE)
-set (CMAKE_CXX_FLAGS_RELEASE "-O3 -std=gnu++0x -DNDEBUG" CACHE STRING "g++ flags" FORCE)
-set (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -ggdb -std=gnu++0x" CACHE STRING "g++ flags" FORCE)
+set (CMAKE_CXX_FLAGS_DEBUG "${iSAAC_CXX_OPTIMIZATION_FLAGS} -ggdb -std=gnu++0x -D_GLIBCXX_DEBUG=1 -pedantic" CACHE STRING "g++ flags" FORCE)
+set (CMAKE_CXX_FLAGS_RELEASE "${iSAAC_CXX_OPTIMIZATION_FLAGS} -std=gnu++0x -DNDEBUG" CACHE STRING "g++ flags" FORCE)
+set (CMAKE_CXX_FLAGS_RELWITHDEBINFO "${iSAAC_CXX_OPTIMIZATION_FLAGS} -ggdb -std=gnu++0x" CACHE STRING "g++ flags" FORCE)
 set (CMAKE_CXX_FLAGS_MINSIZEREL "-Os -std=gnu++0x -DNDEBUG" CACHE STRING "g++ flags" FORCE)
 
 # Force static linking

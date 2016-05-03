@@ -107,7 +107,9 @@ public:
             // Assuming each split read will result in two separate fragments
             SINGLE_SPLIT_LEFTOVER_COMPONENTS * bin.getTotalSplitCount() * 2 +
             // assume each existing cigar gets realignedGapsPerFragment_ gaps introduced...
-            (bin.getTotalCigarLength() + bin.getTotalElements() * realignedGapsPerFragment));
+            (bin.getTotalCigarLength() + bin.getTotalElements() *
+                // assume that to introduce k gaps one will need to have k+1 operations between the gaps
+                (realignedGapsPerFragment + realignedGapsPerFragment + 1)));
 
         // summarize chunk sizes to get offsets
         dataDistribution_.tallyOffsets();

@@ -42,5 +42,16 @@ const boost::filesystem::path &Layout::getAttribute<Layout::Bam, BamFilePathAttr
 }
 
 
+template<>
+const BamVariableLengthOk::value_type &Layout::getAttribute<Layout::Bam, BamVariableLengthOk>(
+    BamVariableLengthOk::value_type &result) const
+{
+    ISAAC_ASSERT_MSG(Fastq == format_, BamVariableLengthOk() << " is only allowed for fastq flowcells");
+
+    const BamFlowcellData &data = boost::get<BamFlowcellData>(formatSpecificData_);
+    result = data.allowVariableLength_;
+    return result;
+}
+
 } // namespace flowcell
 } // namespace isaac

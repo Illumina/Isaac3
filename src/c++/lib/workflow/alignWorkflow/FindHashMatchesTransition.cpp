@@ -194,7 +194,6 @@ void Thread::run(
 FindHashMatchesTransition::FindHashMatchesTransition(
     const flowcell::FlowcellLayoutList &flowcellLayoutList,
     const flowcell::BarcodeMetadataList &barcodeMetadataList,
-    const bool allowVariableFastqLength,
     const bool cleanupIntermediary,
     const unsigned bclTilesPerChunk,
     const bool ignoreMissingBcls,
@@ -260,7 +259,6 @@ FindHashMatchesTransition::FindHashMatchesTransition(
     , repeatThreshold_(repeatThreshold)
     , neighborhoodSizeThreshold_(neighborhoodSizeThreshold)
     , barcodeMetadataList_(barcodeMetadataList)
-    , allowVariableFastqLength_(allowVariableFastqLength)
     , cleanupIntermediary_(cleanupIntermediary)
     , bclTilesPerChunk_(bclTilesPerChunk)
     , ignoreMissingBcls_(ignoreMissingBcls)
@@ -364,9 +362,8 @@ static alignment::BinMetadataList buildBinPathList(
                         // Pad file names well, so that we don't have to worry about them becoming of different length.
                         // This is important for memory reservation to be stable
                     binDirectory / (boost::format("bin-%08d-%08d.dat") % contigIndex % i).str(),
-                    // Normally, aim to have 1024 or less chunks.
-                    // This will require about 4096*1024 (4 megabytes) of cache when pre-sorting bin during the loading in bam generator
-                    preSortBins ? 1024 : 0));
+                    // don't pre-sort normal bins. Seems to have no effect and causes trouble with genomes having large number of contigs
+                    i ? 0 : preSortBins ? 1024 : 0));
         }
         ++contigIndex;
     }
@@ -637,7 +634,6 @@ void FindHashMatchesTransition::alignFlowcells(
             {
                 FastqBaseCallsSource dataSource(
                     clustersAtATimeMax_,
-                    allowVariableFastqLength_,
                     coresMax_,
                     barcodeMetadataList_,
                     flowcell,

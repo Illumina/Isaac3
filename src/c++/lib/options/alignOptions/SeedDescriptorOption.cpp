@@ -130,14 +130,14 @@ unsigned parseAutoSeedDescriptor(
     const unsigned seedLength,
     alignment::SeedMetadataList &seedMetadataList)
 {
+    int index = seedMetadataList.size();
     const unsigned ret = makeExtremitySeeds(0, readMetadata.getLength(), seedLength, readMetadata.getIndex(), seedMetadataList);
 
     // alignment expects the offsets to grow (although users can override offsets in any order they want).
-    std::sort(seedMetadataList.begin(), seedMetadataList.end(),
+    std::sort(seedMetadataList.begin() + index, seedMetadataList.end(),
               boost::bind(&alignment::SeedMetadata::getOffset, _1) < boost::bind(&alignment::SeedMetadata::getOffset, _2));
     // renumber according to sort order
-    int index = 0;
-    BOOST_FOREACH(alignment::SeedMetadata &seedMetadata, seedMetadataList)
+    BOOST_FOREACH(alignment::SeedMetadata &seedMetadata, std::make_pair(seedMetadataList.begin() + index, seedMetadataList.end()))
     {
         seedMetadata = alignment::SeedMetadata(seedMetadata.getOffset(), seedMetadata.getLength(), seedMetadata.getReadIndex(), index);
         ISAAC_THREAD_CERR << "Constructed auto " << seedMetadata << std::endl;
@@ -157,7 +157,7 @@ unsigned parseStepSeedDescriptor(
     const unsigned seedLength,
     alignment::SeedMetadataList &seedMetadataList)
 {
-    ISAAC_ASSERT_MSG(readMetadata.getLength() >= seedLength, "Read is too short for seed lenght " << seedLength << " " << readMetadata);
+    ISAAC_ASSERT_MSG(readMetadata.getLength() >= seedLength, "Read is too short for seed length " << seedLength << " " << readMetadata);
 
     unsigned i = 0;
     for (; i < readMetadata.getLength() - seedLength; i += step)

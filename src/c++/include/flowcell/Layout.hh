@@ -63,14 +63,17 @@ inline std::ostream & operator << (std::ostream &os, const BclFlowcellData &fd)
 
 struct FastqFlowcellData
 {
-    FastqFlowcellData(bool compressed, char fastqQ0) : compressed_(compressed), fastqQ0_(fastqQ0){}
+    FastqFlowcellData(bool compressed, char fastqQ0, bool allowVariableLength) :
+        compressed_(compressed), fastqQ0_(fastqQ0), allowVariableLength_(allowVariableLength){}
     bool compressed_;
     char fastqQ0_;
+    bool allowVariableLength_;
 };
 
 struct BamFlowcellData
 {
-
+    BamFlowcellData(bool allowVariableLength) : allowVariableLength_(allowVariableLength){}
+    bool allowVariableLength_;
 };
 
 

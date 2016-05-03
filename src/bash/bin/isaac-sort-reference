@@ -68,7 +68,7 @@ Options:
                                                         are not stored
   -v [ --version ]                                      Only print version information
   -w [ --mask-width ] arg (=$maskWidth)                          Number of high order bits to use for splitting the data for 
-                                                        parallelization. Notice that values greater than 0 drammatically
+                                                        parallelization. Notice that values greater than 0 dramatically
                                                         slow down neighbor finding as they introduce a substantial amount
                                                         of I/O. For Homo Sapiens genome there is no need to change -w if
                                                         the amount of RAM on the node is 150 Gb or greater.

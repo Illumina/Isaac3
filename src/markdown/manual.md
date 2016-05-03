@@ -23,7 +23,7 @@ then the scratch storage should be able to do over 200 MB/s to avoid IO dominati
 
 
 # Sorted Reference
-iSAAC requires a pre-processed reference to do the alignment. The pre-processing involves analysing the reference genome
+iSAAC requires a pre-processed reference to do the alignment. The pre-processing involves analyzing the reference genome
 and determining the per-position metrics further used in the alignment. The metadata file produced by the pre-processing 
 contains the absolute path to the original .fa file and isaac-align uses that file. 
 It is important to ensure that this file is available in its original location at the time isaac-align is being run.
@@ -48,7 +48,7 @@ bit width (-w) to 1 will split the data in half and reduce the RAM requirement a
 
 **Analyze paired read data from fastq.gz files**
 
-> **NOTE:** the fastq files need to be named or sym-linked in a special way so that iSAAC can recognize them.
+> **NOTE:** the fastq files need to be named or symlinked in a special way so that iSAAC can recognize them.
 
     $ ls Fastq/
     lane1_read1.fastq.gz  lane1_read2.fastq.gz  lane2_read1.fastq.gz  lane2_read2.fastq.gz
@@ -57,7 +57,7 @@ bit width (-w) to 1 will split the data in half and reduce the RAM requirement a
 
 **Analyze single-ended data from fastq.gz files**
 
-> **NOTE:** that the fastq files need to be named or sym-linked in a special way so that iSAAC can recognize them.
+> **NOTE:** that the fastq files need to be named or symlinked in a special way so that iSAAC can recognize them.
 
     $ ls Fastq/
     lane1_read1.fastq.gz  lane2_read1.fastq.gz
@@ -73,7 +73,6 @@ bit width (-w) to 1 will split the data in half and reduce the RAM requirement a
     |-- Projects (output data files)
     |   |-- <project name>
     |   |   |-- <sample name>
-    |   |   |   |-- Casava (subset of CASAVA variant calling results data)
     |   |   |   |-- sorted.bam (bam file for the sample. Contains data for the project/sample from all flowcells)
     |   |   |   `-- sorted.bam.bai
     |   |   |-- ...
@@ -101,6 +100,13 @@ iSAAC has the following data clipping mechanisms enabled by default: [--base-qua
 --clip-overlapping](#isaac-align). Both have shown to improve the consistency of variant calling, however they are not suitable for 
 scenarios targeting evaluation of the quality of sequencing, library preparation and such. Please see isaac-align 
 command line reference manual for details.
+
+## Reducing RAM requirement
+
+By default iSAAC buffers temporary data in memory before writing it out in to the temporary files. This is done to ensure
+that standard Linux configurations don't run out of open file limit on genomes with large number of contigs. If your
+genome has only a handful of contigs or if ulimit -n on your system allows for equivalent plus some extra number
+of open files, using [--buffer-bins no](#isaac-align) will noticeably reduce the memory needed for alignment to run.
 
 ## Reducing Linux swappiness
 
@@ -233,6 +239,13 @@ be controlled by --realigned-gaps-per-fragment parameter.
 In addition to gaps found automatically, known indels can be supplied as a VCF file with --known-indels command line option.
 If multiple equivalent realignments are possible, the ones that contain known indels get preference.
 
+## Duplicates marking
+
+iSAAC duplicates marking is possible only for paired data. During the alignment, individual segments of each pair are binned.
+When each bin is processed, the alignment records are sorted by the criteria that would collocate the two duplicate templates.
+The best quality alignments sort to the top of each group. Depending on the command line arguments, all but top alignments
+are either marked duplicate or removed from the subsequent processing.
+
 # Bam files
 
 iSAAC produces a separate bam file for each project/sample.
@@ -297,7 +310,7 @@ ZY |Cluster Y pixel coordinate on the tile times 100 (disabled by default)
 ## MAPQ
 
 Bam MAPQ for pairs that match dominant template orientation is min(max(SM, AS), 60). For reads that are not members of a 
-pair machting the dominant template orientation, the MAPQ is min(SM, 60). The MAPQ might be downgraded to 0 or set to be 
+pair matching the dominant template orientation, the MAPQ is min(SM, 60). The MAPQ might be downgraded to 0 or set to be 
 unknown (255) for alignments that don't have enough evidence to be correctly scored. This behavior depends on the 
 [--dodgy-alignment-score](#isaac-align) argument.
 
@@ -340,7 +353,7 @@ separate the components.
                                                  otherwise MAPQ:=min(60, max(SM, AS))
     --bam-produce-md5 arg (=1)                   Controls whether a separate file containing md5 checksum is produced 
                                                  for each output bam.
-    --bam-pu-format arg (=%F:%L:%B)              Template string for bam header RG tag PU field. Oridnary characters 
+    --bam-pu-format arg (=%F:%L:%B)              Template string for bam header RG tag PU field. Ordinary characters 
                                                  are directly copied. The following placeholders are supported:
                                                    - %F             : Flowcell ID
                                                    - %L             : Lane number
@@ -374,7 +387,7 @@ separate the components.
                                                    - fastq-gz        : --base-calls points to a directory containing 
                                                  one compressed fastq per lane/read named lane<X>_read<Y>.fastq.gz. Use
                                                  lane<X>_read1.fastq.gz for single-ended data.
-    --base-quality-cutoff arg (=25)              3' end quality trimming cutoff. Value above 0 causes low quality bases
+    --base-quality-cutoff arg (=15)              3' end quality trimming cutoff. Value above 0 causes low quality bases
                                                  to be soft-clipped. 0 turns the trimming off.
     --bcl-tiles-per-chunk arg (=1)               Increase this number when the tiles are too small for the processing 
                                                  to be efficient. In particular, collecting the template length 
@@ -431,14 +444,14 @@ separate the components.
                                                  CTGTCTCTTATACACATCT*,*AGATGTGTATAAGAGACAG
                                                    NexteraMp         : Nextera mate-pair. Same as 
                                                  CTGTCTCTTATACACATCT,AGATGTGTATAAGAGACAG
-    --description arg                            Freeform text to be stored in the iSAAC @PG DS bam header tag
+    --description arg                            Free form text to be stored in the iSAAC @PG DS bam header tag
     --dodgy-alignment-score arg (=0)             Controls the behavior for templates where alignment score is 
                                                  impossible to assign:
                                                   - Unaligned        : marks template fragments as unaligned
                                                   - 0-254            : exact MAPQ value to be set in bam
                                                   - Unknown          : assigns value 255 for bam MAPQ. Ensures SM and 
                                                  AS are not specified in the bam
-    --enable-numa [=arg(=1)] (=0)                Replilcate static data across NUMA nodes, lock threads to their NUMA 
+    --enable-numa [=arg(=1)] (=0)                Replicate static data across NUMA nodes, lock threads to their NUMA 
                                                  nodes, allocate thread private data on the corresponding NUMA node
     --expected-bgzf-ratio arg (=1)               compressed = ratio * uncompressed. To avoid memory overallocation 
                                                  during the bam generation, iSAAC has to assume certain compression 
@@ -565,8 +578,8 @@ separate the components.
                                                  value in sample sheet 'reference' column.
     --remap-qscores arg                          Replace the base calls qscores according to the rules provided.
                                                   - identity   : No remapping. Original qscores are preserved
-                                                  - bin:8      : Equilvalent of 0-1:0,2-9:7,10-19:11,20-24:22,25-29:27,
-                                                 30-34:32,35-39:37,40-63:40
+                                                  - bin:8      : Equivalent of 0-1:0,2-9:7,10-19:11,20-24:22,25-29:27,3
+                                                 0-34:32,35-39:37,40-63:40
     --repeat-threshold arg (=10)                 Threshold used to decide if matches must be discarded as too abundant 
                                                  (when the number of repeats is greater or equal to the threshold)
     --rescue-shadows arg (=1)                    Scan within dominant template range off an orphan, for a possible 
@@ -578,9 +591,9 @@ separate the components.
                                                  This is the default behavior.
                                                    - <file path>     : use <file path> as sample sheet for the 
                                                  flowcell.
-    --scatter-repeats arg (=0)                   When set, extra care will be taken to scatter pairs aligning to 
+    --scatter-repeats arg (=1)                   When set, extra care will be taken to scatter pairs aligning to 
                                                  repeats across the repeat locations 
-    --seed-base-quality-min arg (=10)            Miminum base quality for the seed to be used in alignment candidate 
+    --seed-base-quality-min arg (=10)            Minimum base quality for the seed to be used in alignment candidate 
                                                  search.
     --seed-length arg (=16)                      Length of the seed in bases. Only 16 is allowed. Longer seeds reduce 
                                                  sensitivity on noisy data but improve repeat resolution.
@@ -589,8 +602,8 @@ separate the components.
                                                  of offsets from the beginning of the read. 
                                                  Examples:
                                                    - all             : seed at every cycle of the read
-                                                   - auto            : automatic choice of seeds based on 
-                                                 --semialigned-strategy parameter
+                                                   - auto            : starting at each extremity of the read take pair
+                                                 of non-overlapping 32-mers, recursively repeat
                                                    - step=X          : seed every X cycles of the read
                                                    - 0:32,0:32:64    : two seeds on the first read (at offsets 0 and 
                                                  32) and three seeds on the second read (at offsets 0, 32, and 64) and 
@@ -612,7 +625,7 @@ separate the components.
                                                  is simply ignored as an alignment candidate.
     --split-alignments arg (=1)                  When set, alignments crossing a structural variant are allowed to be 
                                                  split with SA tag.
-    --split-gap-length arg (=4294967295)         Maximum length of insertion or deletion allowed to exist in a read. If
+    --split-gap-length arg (=10000)              Maximum length of insertion or deletion allowed to exist in a read. If
                                                  a gap exceeds this limit, the read gets broken up around the gap with 
                                                  SA tag introduced
     --start-from arg (=Start)                    Start processing at the specified stage:
@@ -626,7 +639,7 @@ separate the components.
                                                  the only safe option is 'Start' The primary purpose of the feature is 
                                                  to reduce the time required to diagnose the issues rather than be used
                                                  on a regular basis.
-    --stats-image-format arg (=gif)              Format to use for images during stats generation
+    --stats-image-format arg (=none)             Format to use for images during stats generation
                                                   - gif        : produce .gif type plots
                                                   - none       : no stat generation
     --stop-at arg (=Finish)                      Stop processing after the specified stage is complete:
@@ -666,8 +679,8 @@ separate the components.
                                                    - N or n          : discard
                                                    - I or i          : use for indexing
                                                  
-                                                 If not given, the mask will be guessed from the B<config.xml> file in 
-                                                 the base-calls directory.
+                                                 If not given, the mask will be guessed from the config.xml file in the
+                                                 base-calls directory.
                                                  
                                                  For instance, in a 2x76 indexed paired end run, the mask 
                                                  I<Y76,I6n,y75n> means:
@@ -737,37 +750,38 @@ separate the components.
 isaac-sort-reference [options]
 ```
 
-Time highly depends on the size of the genome. For E. coli it takes about 1 minute. For human genomes it takes about 11 
+Time highly depends on the size of the genome. For E.Coli it takes about 1 minute. For human genomes it takes about 11 
 hours on a 24-threaded 2.6GHz system.
 
 **Options**
 
-    -g [ --genome-file ] arg                              Path to fasta file containing the reference contigs 
-    -h [ --help ]                                         Print this message
-    -j [ --jobs ] arg (=)                                 Maximum number of parallel operations. Leave empty for 
-                                                          unlimited parallelization on grid. It is recommended to keep 1
-                                                          for single-node execution
-    -n [ --dry-run ]                                      Don't actually run any commands; just print them
-    -o [ --output-directory ] arg (./iSAACIndex.20150409) Location where the results are stored
-    -q [ --quiet ]                                        Avoid excessive logging
-    -v [ --version ]                                      Only print version information
-    -w [ --mask-width ] arg (=0)                          Number of high order bits to use for splitting the data for 
-                                                          parallelization. Notice that values greater than 0 drammatically
-                                                          slow down neighbor finding as they introduce a substantial amount
-                                                          of I/O. For Homo Sapiens genome there is no need to change -w if
-                                                          the amount of RAM on the node is 150 Gb or greater.
-    --annotation-seed-lengths arg (=16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80 )
-                                                          Space-separated k-mer lengths for annotation generation. Go down 
-                                                          to 16 to have a bit more sensitivity in unique parts of the 
-                                                          genome when input data is noisy. Go up to 128 to allow better 
-                                                          anchoring in less unique regions if longer read length is expected. 
-                                                          Notice that all seeds must be divisible by 4 with current 
-                                                          implementation of neighbor finding.
-    --dont-annotate                                       Don't search for neighbors
-    --qrsh-cmd arg (=)                                    Command to execute given command line on a grid node. Example:
+  -g [ --genome-file ] arg                              Path to fasta file containing the reference contigs 
+  -h [ --help ]                                         Print this message
+  -j [ --jobs ] arg (=)                                 Maximum number of parallel operations. Leave empty for 
+                                                        unlimited parallelization on grid. It is recommended to keep 1
+                                                        for single-node execution
+  -n [ --dry-run ]                                      Don't actually run any commands; just print them
+  -o [ --output-directory ] arg (./iSAACIndex.20160427) Location where the results are stored
+  -q [ --quiet ]                                        Avoid excessive logging
+  -t [ --repeat-threshold ] arg (=1000)                 Repeat cutoff after which individual kmer positions 
+                                                        are not stored
+  -v [ --version ]                                      Only print version information
+  -w [ --mask-width ] arg (=0)                          Number of high order bits to use for splitting the data for 
+                                                        parallelization. Notice that values greater than 0 dramatically
+                                                        slow down neighbor finding as they introduce a substantial amount
+                                                        of I/O. For Homo Sapiens genome there is no need to change -w if
+                                                        the amount of RAM on the node is 150 Gb or greater.
+  --annotation-seed-lengths arg (=16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80)
+                                                        Space-separated k-mer lengths for annotation generation. Go down 
+                                                        to 16 to have a bit more sensitivity in unique parts of the 
+                                                        genome when input data is noisy. Go up to 128 to allow better 
+                                                        anchoring in less unique regions if longer read length is expected. 
+                                                        Notice that all seeds must be divisible by 4 with current 
+                                                        implementation of neighbor finding.
+  --dont-annotate                                       Don't search for neighbors
+  --qrsh-cmd arg (=)                                    Command to execute given command line on a grid node. Example:
                                                             --qrsh-cmd 'qrsh -cwd -v PATH -now no -l wholenode=TRUE'
-    --target arg (all)                                    Individual target to make
-
+  --target arg (all)                                    Individual target to make
 
 
 **Example**

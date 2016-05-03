@@ -253,7 +253,9 @@ bool SplitReadAligner::mergeDeletionAlignments(
         headAlignment.rightClipped() = tailAlignment.rightClipped();
         ISAAC_VERIFY_MSG(updateFragmentCigar(
             readMetadata, contigList, kUniqenessAnnotation, headAlignment,
-            headAlignment.contigId, headAlignment.position + clippingPositionOffset, cigarBuffer, cigarOffset), "The alignment can't have no matches here");
+            headAlignment.reverse, headAlignment.contigId,
+            headAlignment.position + clippingPositionOffset,
+            cigarBuffer, cigarOffset), "The alignment can't have no matches here");
 
         ISAAC_THREAD_CERR_DEV_TRACE(" alignSimpleDeletion done: " << headAlignment << "-" << tailAlignment);
         return true;
@@ -475,7 +477,8 @@ bool SplitReadAligner::mergeInversionAlignments(
         headAlignment.rightClipped() = tailAlignment.rightClipped();
         ISAAC_VERIFY_MSG(updateFragmentCigar(
             readMetadata, contigList, kUniqenessAnnotation, headAlignment,
-            headAlignment.contigId, headAlignment.position + beginClippingOffset, cigarBuffer, cigarOffset), "The alignment can't have no matches here");
+            headAlignment.reverse, headAlignment.contigId, headAlignment.position + beginClippingOffset,
+            cigarBuffer, cigarOffset), "The alignment can't have no matches here");
 
         ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(headAlignment.getCluster().getId(), " mergeInversionAlignments done: " << headAlignment << "-" << tailAlignment);
         return true;
@@ -678,7 +681,8 @@ bool SplitReadAligner::mergeRightAnchoredInversionAlignments(
         headAlignment.rightClipped() = tailAlignment.rightClipped();
         ISAAC_VERIFY_MSG(updateFragmentCigar(
             readMetadata, contigList, kUniqenessAnnotation, headAlignment,
-            headAlignment.contigId, headAlignment.position + bestOffset, cigarBuffer, cigarOffset), "The alignment can't have no matches here");
+            headAlignment.reverse, headAlignment.contigId, headAlignment.position + bestOffset,
+            cigarBuffer, cigarOffset), "The alignment can't have no matches here");
 
         ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(headAlignment.getCluster().getId(), " mergeInversionAlignments done: " << headAlignment << "-" << tailAlignment);
         return true;
@@ -919,7 +923,8 @@ bool SplitReadAligner::mergeInsertionAlignments(
         tailAlignment.leftClipped() = headAlignment.leftClipped();
         ISAAC_VERIFY_MSG(updateFragmentCigar(
             readMetadata, contigList, kUniqenessAnnotation, tailAlignment,
-            headAlignment.contigId, headAlignment.position, cigarBuffer, cigarOffset), "The alignment can't have no matches here");
+            headAlignment.reverse, headAlignment.contigId, headAlignment.position,
+            cigarBuffer, cigarOffset), "The alignment can't have no matches here");
 
         ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(headAlignment.getCluster().getId(), " alignSimpleInsertion done: " << headAlignment << "-" << tailAlignment);
         return true;

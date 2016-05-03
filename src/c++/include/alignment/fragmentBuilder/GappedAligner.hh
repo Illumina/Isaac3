@@ -71,15 +71,17 @@ protected:
     common::StaticVector<unsigned, 2> hashedQueryTile_;
     common::StaticVector<unsigned, 2> hashedQueryCluster_;
     common::StaticVector<unsigned, 2> hashedQueryReadIndex_;
+    common::StaticVector<std::vector<char>::const_iterator, 2> hashedQueryBegin_;
+    common::StaticVector<std::vector<char>::const_iterator, 2> hashedQueryEnd_;
 
     // initialize all k-mers to the magic value -1 (NOT_FOUND)
-    common::StaticVector<unsigned short, oligo::MaxKmer<HASH_KMER_LENGTH, unsigned short>::value + 1> queryKmerOffsets_;
+    common::StaticVector<unsigned short, oligo::MaxKmer<HASH_KMER_LENGTH, unsigned short>::value + 1> queryKmerOffsets_[2];
     static const unsigned short UNINITIALIZED_OFFSET_MAGIC = static_cast<unsigned short>(-1);
     static const unsigned short REPEAT_OFFSET_MAGIC = static_cast<unsigned short>(-2);
     // count of hits required to assume that part of the sequence will anchor at a position.
     // the smaller the number, the more reads will go into smith-waterman. The higher the number
     // the more likely is that some good gapped alignments will not be attempted
-    static const unsigned char SUFFICIENT_NUMBER_OF_HITS = 8;
+    static const unsigned char SUFFICIENT_NUMBER_OF_HITS = 4;
 
     bool makesSenseToGapAlign(
         const unsigned tile, const unsigned cluster, const unsigned read, const bool reverse,

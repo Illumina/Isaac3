@@ -21,7 +21,6 @@
 #define iSAAC_ALIGNMENT_BANDED_SMITH_WATERMAN_HH
 
 #include <string>
-
 #include <boost/noncopyable.hpp>
 
 #include "alignment/Cigar.hh"
@@ -73,11 +72,15 @@ public:
      **
      ** Note: this operation is not 'const' because it uses a pre-allocated internal buffer.
      **/
+    static const unsigned WIDEST_GAP_SIZE = 16;
+
+
     unsigned align(
         const std::vector<char> &query,
         const reference::Contig::const_iterator databaseBegin,
         const reference::Contig::const_iterator databaseEnd,
         Cigar &cigar) const;
+
 
     unsigned align(
         const std::vector<char>::const_iterator queryBegin,
@@ -86,8 +89,7 @@ public:
         const reference::Contig::const_iterator databaseEnd,
         Cigar &cigar) const;
 
-    // the widest gap-size handled by this implementation
-    static const unsigned WIDEST_GAP_SIZE = 16;
+// the widest gap-size handled by this implementation
     // if we know there are no reference matching kmers within cutoffDistance,
     // there is no point to do the gapped alignment.
 //    static const unsigned distanceCutoff = 7;
@@ -106,6 +108,7 @@ private:
 
     unsigned trimTailIndels(Cigar& cigar, const size_t beginOffset) const;
     void removeAdjacentIndels(Cigar& cigar, const size_t beginOffset) const;
+    void cp(int16_t source[WIDEST_GAP_SIZE], int16_t destination[WIDEST_GAP_SIZE]) const;
 };  
 
 } // namespace alignment

@@ -81,6 +81,17 @@ const FastqBaseQ0::value_type &Layout::getAttribute<Layout::Fastq, FastqBaseQ0>(
     return result;
 }
 
+template<>
+const FastqVariableLengthOk::value_type &Layout::getAttribute<Layout::Fastq, FastqVariableLengthOk>(
+    FastqVariableLengthOk::value_type &result) const
+{
+    ISAAC_ASSERT_MSG(Fastq == format_, FastqVariableLengthOk() << " is only allowed for fastq flowcells");
+
+    const FastqFlowcellData &data = boost::get<FastqFlowcellData>(formatSpecificData_);
+    result = data.allowVariableLength_;
+    return result;
+}
+
 
 } // namespace flowcell
 } // namespace isaac

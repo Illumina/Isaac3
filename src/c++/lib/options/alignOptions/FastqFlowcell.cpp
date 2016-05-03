@@ -310,7 +310,7 @@ flowcell::Layout FastqFlowcell::createFilteredFlowcell(
 
     flowcell::Layout fc(baseCallsDirectory,
                         flowcell::Layout::Fastq,
-                        flowcell::FastqFlowcellData(compressed, fastqQ0),
+                        flowcell::FastqFlowcellData(compressed, fastqQ0, allowVariableFastqLength),
                         laneNumberMax,
                         flowcellInfo.readNameLength_,
                         std::vector<unsigned>(),

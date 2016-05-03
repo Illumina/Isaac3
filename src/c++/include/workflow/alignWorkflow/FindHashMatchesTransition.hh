@@ -130,7 +130,6 @@ public:
     FindHashMatchesTransition(
         const flowcell::FlowcellLayoutList &flowcellLayoutList,
         const flowcell::BarcodeMetadataList &barcodeMetadataList,
-        const bool allowVariableFastqLength,
         const bool cleanupIntermediary,
         const unsigned bclTilesPerChunk,
         const bool ignoreMissingBcls,
@@ -206,7 +205,6 @@ private:
     const unsigned repeatThreshold_;
     const unsigned neighborhoodSizeThreshold_;
     const flowcell::BarcodeMetadataList &barcodeMetadataList_;
-    const bool allowVariableFastqLength_;
     const bool cleanupIntermediary_;
     const unsigned bclTilesPerChunk_;
     const bool ignoreMissingBcls_;

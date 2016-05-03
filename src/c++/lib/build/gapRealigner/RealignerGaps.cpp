@@ -46,7 +46,7 @@ inline bool orderByGapStartAndTypeLength(const gapRealigner::Gap &left, const ga
     return left.getBeginPos() < right.getBeginPos() ||
         (left.getBeginPos() == right.getBeginPos() && (left.length_ < right.length_ ||
             // put high-priority gaps on top so that their copies with low priority go away when erasing
-            (left.length_ == right.length_ && right.priority_ > left.priority_)));
+            (left.length_ == right.length_ && left.priority_ > right.priority_)));
 }
 
 inline bool orderByDeletionGapEnd(const gapRealigner::Gap &left, const gapRealigner::Gap &right)

@@ -396,7 +396,10 @@ FragmentMetadata TemplateBuilder::trimForwardPEAdapter(
     ret.incrementAdapterClip(clip);
     ret.updateAlignment(
         collectMismatchCycles_, alignmentCfg_, readMetadata, contigList,
-        kUniqenessAnnotation, forwardFragment.contigId, forwardFragment.position, cigarBuffer_, cigarOffset);
+        kUniqenessAnnotation,
+        forwardFragment.reverse,
+        forwardFragment.contigId, forwardFragment.position,
+        cigarBuffer_, cigarOffset);
     return ret;
 }
 
@@ -472,7 +475,9 @@ FragmentMetadata TemplateBuilder::trimReversePEAdapter(
     ret.resetAlignment();
     ret.updateAlignment(
         collectMismatchCycles_, alignmentCfg_, readMetadata, contigList,
-        kUniqenessAnnotation, reverseFragment.contigId, fwPos.getPosition(), cigarBuffer_, cigarOffset);
+        kUniqenessAnnotation,
+        reverseFragment.reverse, reverseFragment.contigId, fwPos.getPosition(),
+        cigarBuffer_, cigarOffset);
     ret.leftClipped() = std::max<unsigned short>(clip, ret.leftClipped());
     ret.incrementAdapterClip(clip);
     return ret;

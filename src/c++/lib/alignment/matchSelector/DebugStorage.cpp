@@ -95,6 +95,7 @@ bool DebugStorage::restoreOriginal(const std::size_t readNumber, FragmentMetadat
             flowcell_.getReadMetadataList().at(fragment.getReadIndex()),
             contigList_,
             contigAnnotations_,
+            oriPos.reverse(),
             oriPos.getContigId(),
             oriPos.getPosition(),
             originalCigars_[fragment.getReadIndex()],

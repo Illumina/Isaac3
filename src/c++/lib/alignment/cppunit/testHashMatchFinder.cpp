@@ -82,7 +82,7 @@ TestMatchStorage TestHashMatchFinder::findMatches(
 
     const isaac::reference::ReferenceHash<isaac::oligo::VeryShortKmerType> referenceHash = referenceHasher.generate();
 
-    isaac::flowcell::FlowcellLayoutList flowcells(1, isaac::flowcell::Layout("", isaac::flowcell::Layout::Fastq, isaac::flowcell::FastqFlowcellData(false, '!'), 8, 0, std::vector<unsigned>(),
+    isaac::flowcell::FlowcellLayoutList flowcells(1, isaac::flowcell::Layout("", isaac::flowcell::Layout::Fastq, isaac::flowcell::FastqFlowcellData(false, '!', false), 8, 0, std::vector<unsigned>(),
                                          readMetadataList, seedMetadataList, "blah"));
 
     isaac::flowcell::TileMetadata tileMetadata(
