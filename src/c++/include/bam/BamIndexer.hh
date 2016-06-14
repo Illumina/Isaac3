@@ -668,7 +668,22 @@ public:
     uint64_t bamStatsMapped_, bamStatsNmapped_;
 };
 
-typedef std::vector<char, common::NumaAllocator<char, common::numa::defaultNodeLocal> > BgzfBuffer;
+//typedef std::vector<char, common::NumaAllocator<char, common::numa::defaultNodeLocal> > BgzfBuffer;
+struct BgzfBuffer : public std::vector<char, common::NumaAllocator<char, common::numa::defaultNodeLocal> >
+{
+    typedef std::vector<char, common::NumaAllocator<char, common::numa::defaultNodeLocal> > BaseT;
+    template<typename InputIterator>
+    void insert(iterator position, InputIterator first, InputIterator last)
+    {
+        ISAAC_ASSERT_MSG(this->end() == position, "Attempt to insert in the middle of BgzfBuffer.");
+        if (std::size_t(std::distance(first, last)) > (capacity() - size()))
+        {
+            errno = ENOMEM;
+            BOOST_THROW_EXCEPTION(common::IoException(ENOMEM, "Attempt to insert more data that can fit in pre-allocated BgzfBuffer."));
+        }
+        BaseT::insert(position, first, last);
+    }
+};
 
 class BamIndex
 {

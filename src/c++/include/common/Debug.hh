@@ -29,8 +29,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time.hpp>
 #include <boost/io/ios_state.hpp>
-#include <boost/iostreams/device/null.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
 #include <boost/thread.hpp>
 
 #include "common/SystemCompatibility.hh"

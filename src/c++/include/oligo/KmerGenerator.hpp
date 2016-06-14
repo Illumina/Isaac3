@@ -58,7 +58,7 @@ public:
     {
         const T one(1);
         ISAAC_ASSERT_MSG((oligo::BITS_PER_BASE * kmerLength_) <= (8 * sizeof(T)), "Type " << typeid(T).name() <<
-            "is insufficient to accomodate kmer length " << kmerLength_);
+            "is insufficient to accommodate kmer length " << kmerLength_);
         // in Intel left shift by number of bits >= of type width does not do anything. Make sure this is not happening again
         ISAAC_VERIFY_MSG(!((oligo::shlBases(one, kmerLength_) & mask_)), "Left shift failed");
 //        assert((oligo::shlBases(one, kmerLength_) - T(1)) == ((oligo::shlBases(one, kmerLength_) - T(1)) & mask_));
@@ -167,7 +167,11 @@ inline KmerT getMaxKmer(const unsigned kmerLength)
 
 template <unsigned kmerLength, typename KmerT> struct MaxKmer
 {
-    static const unsigned value = ~(~KmerT(0) << 2 * kmerLength);
+    // gcc 6.1 thinks ~KmerT(0) is signed -1 for KmerT being unsigned short.
+//    static const KmerT value = ~(KmerT(-1UL) << 2 * kmerLength);
+//    static const KmerT value = ~(~KmerT(0) << 2 * kmerLength);
+//    static const KmerT value = ~((KmerT(0)-KmerT(1)) << 2 * kmerLength);
+    static const KmerT value = (KmerT(1) << 2 * kmerLength) - 1;
 };
 
 /**
@@ -193,7 +197,9 @@ bool generateKmer(
         kmer <<= 2;
         kmer |= defaultTranslator[*current];
     }
-    kmer &= (~((~T(0)) << (2 * kmerLength)));
+//    kmer &= (~((~T(0)) << (2 * kmerLength)));
+    const T mask = (T(1) << 2 * kmerLength) - 1;
+    kmer &= mask;
     return true;
 }
 

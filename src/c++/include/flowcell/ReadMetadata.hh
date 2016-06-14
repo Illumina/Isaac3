@@ -68,11 +68,6 @@ public:
     unsigned getIndex() const {return index_;}
     unsigned getNumber() const {return number_;}
     unsigned getOffset() const {return offset_;}
-    bool operator==(const ReadMetadata &rhs) const;
-    bool operator!=(const ReadMetadata &rhs) const
-    {
-        return !(rhs == *this);
-    }
 
     void setNumber(unsigned number){number_ = number;}
 private:

@@ -614,6 +614,7 @@ void Build::reserveBuffers(
             bgzfStreams.back().push(
                 boost::iostreams::back_insert_device<bam::BgzfBuffer >(
                     bgzfBuffers.at(bgzfStreams.size()-1)));
+            bgzfStreams.back().exceptions(std::ios_base::badbit);
         }
 
         ISAAC_ASSERT_MSG(!bamIndexParts.size(), "Expecting empty pool of bam index parts");
@@ -700,6 +701,10 @@ boost::shared_ptr<BinData> Build::allocateBin(
     boost::shared_ptr<BinData> ret;
     while(nextUnallocatedBinIt != thisThreadBinIt)
     {
+        if (forceTermination_)
+        {
+            BOOST_THROW_EXCEPTION(common::ThreadingException("Terminating due to failures on other threads"));
+        }
         stateChangedCondition_.wait(lock);
     }
 
@@ -737,6 +742,10 @@ boost::shared_ptr<BinData> Build::allocateBin(
         }
 
         stateChangedCondition_.wait(lock);
+        if (forceTermination_)
+        {
+            BOOST_THROW_EXCEPTION(common::ThreadingException("Terminating due to failures on other threads"));
+        }
     }
 
     ++allocatedBins_;
@@ -796,7 +805,15 @@ bool Build::executePreemptTask(
     //    ISAAC_THREAD_CERR << "preempt task " << task << " on thread " << threadNumber << "in:" << task->threadsIn_ << std::endl;
     ++task.threadsIn_;
     //    ISAAC_THREAD_CERR << "preempt " << &lock << " " << threadNumber << std::endl;
-    task.execute(lock, threadNumber);
+    try
+    {
+        task.execute(lock, threadNumber);
+    }
+    catch (...)
+    {
+        --task.threadsIn_;
+        throw;
+    }
     --task.threadsIn_;
     //    ISAAC_THREAD_CERR << "preempt task " << task << " on thread " << threadNumber << "in:" << task->threadsIn_ << " done" << std::endl;
     //stop new threads entering the task;

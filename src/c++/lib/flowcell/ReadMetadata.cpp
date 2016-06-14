@@ -58,13 +58,6 @@ ReadMetadata::ReadMetadata(unsigned firstCycle, unsigned lastCycle, unsigned ind
     }
 }
 
-bool ReadMetadata::operator==(const ReadMetadata &rhs) const
-{
-    return cycleList_ == rhs.cycleList_ &&
-        index_ == index_ &&
-        offset_ == offset_;
-}
-
 unsigned getTotalReadLength(const ReadMetadataList &readMetadataList)
 {
     return std::accumulate(

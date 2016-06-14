@@ -1,3 +1,13 @@
+iSAAC-03.16.06.06
+* SAAC-947 fastq data incorrectly loaded when --input-concurrent-load=1
+
+iSAAC-03.16.05.25
+* SAAC-943 isaac-align lives forever after bam compression failure with large number of unaligned reads due to insufficient bgzf ratio
+
+iSAAC-03.16.05.05
+* SAAC-937 boost 1.60 produces too many compilation warnings
+* SAAC-932 gcc 6.1 compatibility
+
 iSAAC-03.16.04.27
 * SAAC-919 autovectorizing smith waterman implementation
 * SAAC-930 seed choice clarification

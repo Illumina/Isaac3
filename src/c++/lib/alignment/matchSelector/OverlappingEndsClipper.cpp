@@ -59,7 +59,7 @@ void OverlappingEndsClipper::clip(
         return;
     }
 
-    if (r1.contigId != r1.contigId)
+    if (r1.contigId != r2.contigId)
     {
         // ignore chimeric pairs
         return;

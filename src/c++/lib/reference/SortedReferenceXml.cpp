@@ -171,6 +171,9 @@ void serialize(xml::XmlReader &reader, SortedReferenceMetadata::Contigs &contigs
     reader.clear();
 }
 
+template<class Archive> void serialize(Archive & ar, SortedReferenceMetadata &, const unsigned int file_version);
+template<class Archive> void serialize(Archive & ar, const SortedReferenceMetadata &, const unsigned int file_version);
+
 template <>
 void serialize<xml::XmlReader>(xml::XmlReader &reader, SortedReferenceMetadata &sortedReferenceMetadata, const unsigned int version)
 {

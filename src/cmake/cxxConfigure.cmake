@@ -140,7 +140,7 @@ else(NOT iSAAC_AVX2)
   set(iSAAC_VECTORIZATION "-mavx2")
 endif(NOT iSAAC_AVX2)
 
-set (CMAKE_CXX_FLAGS "$ENV{CXX_FLAGS} $ENV{CXXFLAGS} -fopenmp ${iSAAC_VECTORIZATION} -Wall -Wextra -Wunused -Wno-long-long -Wsign-compare -Wpointer-arith -DBOOST_SYSTEM_API_CONFIG_HPP -DBOOST_POSIX_API " CACHE STRING "g++ flags" FORCE)
+set (CMAKE_CXX_FLAGS "$ENV{CXX_FLAGS} $ENV{CXXFLAGS} -fpermissive -fopenmp ${iSAAC_VECTORIZATION} -Wall -Wextra -Wunused -Wno-long-long -Wsign-compare -Wpointer-arith -DBOOST_SYSTEM_API_CONFIG_HPP -DBOOST_POSIX_API " CACHE STRING "g++ flags" FORCE)
 # -03 causes loop unrolling that prevent autovectorization of some parts of BandedSmithWaterman
 set (iSAAC_CXX_OPTIMIZATION_FLAGS "-O2 -ftree-vectorize -finline-functions -fpredictive-commoning -fpredictive-commoning -fgcse-after-reload -funswitch-loops -ftree-slp-vectorize -fvect-cost-model -fipa-cp-clone  -ftree-phiprop")
 #set (CMAKE_CXX_FLAGS_DEBUG "-O0 -g -pg -std=c++0x -fprofile-arcs -ftest-coverage -D_GLIBCXX_DEBUG" CACHE STRING "g++ flags" FORCE)

@@ -474,13 +474,13 @@ private:
 template <>
 inline unsigned UnpairedReadsCache::getNameCrc<0>(unsigned crcWidth, const char *name, const std::size_t nameLength)
 {
-    return CrcSelector<0>::getStringCrc(name, nameLength);
+    return CrcSelector<0U>::getStringCrc(name, nameLength);
 }
 
 template <>
 inline unsigned UnpairedReadsCache::getEffectiveCrcWidth<0>(unsigned requiredWidth)
 {
-    return CrcSelector<0>::Selection::bit_count;
+    return CrcSelector<0U>::Selection::bit_count;
 }
 
 

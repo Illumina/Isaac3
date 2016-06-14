@@ -111,7 +111,7 @@ public:
             else
             {
                 ISAAC_ASSERT_MSG(1 == inputLoadersMax_, "At least one thread is expected for IO")
-                readClusters[0] = loadSingleRead(*readReaders_[0], clusterCount, readMetadataList.at(0), readMetadataList.at(1).getLength(), 0, it1);
+                readClusters[0] = loadSingleRead(*readReaders_[0], clusterCount, readMetadataList.at(0), readMetadataList.at(1).getLength() + nameLengthMax, 0, it1);
                 it += readMetadataList.at(0).getLength();
                 readClusters[1] = loadSingleRead(*readReaders_[1], clusterCount, readMetadataList.at(1), readMetadataList.at(0).getLength(), nameLengthMax, it);
             }

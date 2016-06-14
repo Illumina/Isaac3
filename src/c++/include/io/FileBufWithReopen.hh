@@ -40,7 +40,7 @@ class basic_FileBufWithReopen : public std::basic_filebuf<_CharT, _Traits>
     const std::ios_base::openmode mode_;
     basic_FileBufWithReopen();
 public:
-    basic_FileBufWithReopen(std::ios_base::openmode mode) : mode_(mode)
+    basic_FileBufWithReopen(std::ios_base::openmode mode) : std::basic_filebuf<_CharT, _Traits>(), mode_(mode)
     {
         if (!reserve())
         {
@@ -49,7 +49,7 @@ public:
     }
 
     /// Notice: the copy constructor does not copy the state of open handle. Only the open mode to allow for having vectors of the object
-    basic_FileBufWithReopen(const basic_FileBufWithReopen &that) : mode_(that.mode_)
+    basic_FileBufWithReopen(const basic_FileBufWithReopen &that) : std::basic_filebuf<_CharT, _Traits>(), mode_(that.mode_)
     {
         if (!reserve())
         {
