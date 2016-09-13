@@ -44,7 +44,8 @@ uint64_t BinSorter::serialize(
     }
     ISAAC_THREAD_CERR << "Sorting offsets for bam " << binData.bin_ << std::endl;
 
-    bamSerializer_.prepareForBam(binData.data_, binData, binData.additionalCigars_);
+    const isaac::reference::ContigLists &nodeContigs = contigLists_.threadNodeContainer();
+    bamSerializer_.prepareForBam(nodeContigs.front(), binData.data_, binData, binData.additionalCigars_, binData.splitInfoList_);
 
     ISAAC_THREAD_CERR << "Sorting offsets for bam done " << binData.bin_ << std::endl;
 
@@ -65,7 +66,6 @@ uint64_t BinSorter::serialize(
     }
     else
     {
-        const isaac::reference::ContigLists &nodeContigs = contigLists_.threadNodeContainer();
         const isaac::reference::ContigAnnotationsList &nodeAnnotations = annotations_.threadNodeContainer();
         BOOST_FOREACH(const PackedFragmentBuffer::Index& idx, binData)
         {

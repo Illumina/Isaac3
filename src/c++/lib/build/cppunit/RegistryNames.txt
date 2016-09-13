@@ -1,3 +1,2 @@
 TestDuplicateFiltering
 TestGapRealigner
-TestSaTagMaker

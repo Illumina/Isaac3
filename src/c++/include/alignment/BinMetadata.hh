@@ -28,6 +28,7 @@
 
 #include "flowcell/BarcodeMetadata.hh"
 #include "reference/ReferencePosition.hh"
+#include "io/Fragment.hh"
 
 namespace isaac
 {
@@ -117,6 +118,13 @@ struct BinChunk
     {
         ISAAC_ASSERT_MSG(barcodeBreakdown_.size() > barcodeIdx, "Invalid barcode requested: " << barcodeIdx << " for size: " << barcodeBreakdown_.size());
         return barcodeBreakdown_[barcodeIdx].gaps_;
+    }
+
+    uint64_t getTotalGapCount() const
+    {
+        return std::accumulate(barcodeBreakdown_.begin(), barcodeBreakdown_.end(), 0,
+                               boost::bind(std::plus<uint64_t>(),
+                                           _1, boost::bind(&BarcodeCounts::gaps_, _2)));
     }
 
     uint64_t getTotalSplitCount() const
@@ -225,6 +233,7 @@ public:
 
     uint64_t getTotalCigarLength() const;
     uint64_t getBarcodeGapCount(const unsigned barcodeIdx) const;
+    uint64_t getTotalGapCount() const;
     uint64_t getTotalSplitCount() const;
     uint64_t getBarcodeElements(const unsigned barcodeIdx) const;
     uint64_t getTotalElements() const;
@@ -545,6 +554,11 @@ public:
         return dataDistribution_.getBarcodeGapCount(barcodeIdx);
     }
 
+    uint64_t getTotalGapCount() const
+    {
+        return dataDistribution_.getTotalGapCount();
+    }
+
     uint64_t getTotalSplitCount() const
     {
         return dataDistribution_.getTotalSplitCount();
@@ -655,6 +669,13 @@ inline uint64_t BinDataDistribution::getBarcodeGapCount(const unsigned barcodeId
     return std::accumulate(begin(), end(), 0,
                            boost::bind(std::plus<uint64_t>(),
                                        _1, boost::bind(&BinChunk::getBarcodeGapCount, _2, barcodeIdx)));
+}
+
+inline uint64_t BinDataDistribution::getTotalGapCount() const
+{
+    return std::accumulate(begin(), end(), 0,
+                           boost::bind(std::plus<uint64_t>(),
+                                       _1, boost::bind(&BinChunk::getTotalGapCount, _2)));
 }
 
 inline uint64_t BinDataDistribution::getTotalSplitCount() const

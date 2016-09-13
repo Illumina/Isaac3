@@ -1,3 +1,22 @@
+iSAAC-03.16.09.13
+* SAAC-1037 ERROR: ***** Internal Program Error - assertion ([...]) failed in isaac::build::GapRealigner::GapChoice github #5
+* SAAC-1035 --realign-vigorously yes produces infinite loop and crashes
+
+iSAAC-03.16.08.11
+* SAAC-983 Fix for not accounting for split alignments in split buffer reservation
+
+iSAAC-03.16.08.10
+* SAAC-982 low-covered contigs don't reserve correct amount of memory for gap splits
+* SAAC-980 memory control failure in bam generation task list when only one bin is produced
+* SAAC-979 chrM causes too much memory allocated for expected gap splits
+* SAAC-972 split gap buffer memory control
+
+iSAAC-03.16.07.08
+* SAAC-965 108 base deletion split with --split-gap-length 100 produces two R1 entries in bam without SA tags and no 'supplementary' flag set
+
+iSAAC-03.16.07.01
+* SAAC-961 bad_alloc at the end of fastq-gz lane when more lanes are present
+
 iSAAC-03.16.06.06
 * SAAC-947 fastq data incorrectly loaded when --input-concurrent-load=1
 

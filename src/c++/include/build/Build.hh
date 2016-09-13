@@ -78,6 +78,7 @@ class Build
     const unsigned realignedGapsPerFragment_;
     const bool clipSemialigned_;
     const build::GapRealignerMode realignGaps_;
+    const unsigned expectedCoverage_;
     const double expectedBgzfCompressionRatio_;
     const unsigned maxReadLength_;
     const IncludeTags includeTags_;
@@ -151,6 +152,7 @@ public:
           const std::string &bamPuFormat,
           const bool bamProduceMd5,
           const std::vector<std::string> &bamHeaderTags,
+          const unsigned expectedCoverage,
           const double expectedBgzfCompressionRatio,
           const bool singleLibrarySamples,
           const bool keepDuplicates,

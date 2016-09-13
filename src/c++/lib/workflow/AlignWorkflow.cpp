@@ -359,7 +359,7 @@ const build::BarcodeBamMapping AlignWorkflow::generateBam(
                        kUniquenessAnnotations_,
                        projectsDirectory_,
                        tempLoadersMax_, coresMax_, outputSaversMax_, realignGaps_, knownIndelsPath_,
-                       bamGzipLevel_, bamPuFormat_, bamProduceMd5_, bamHeaderTags_, expectedBgzfCompressionRatio_, singleLibrarySamples_,
+                       bamGzipLevel_, bamPuFormat_, bamProduceMd5_, bamHeaderTags_, expectedCoverage_, expectedBgzfCompressionRatio_, singleLibrarySamples_,
                        keepDuplicates_, markDuplicates_, anchorMate_,
                        realignGapsVigorously_, realignDodgyFragments_, realignedGapsPerFragment_,
                        clipSemialigned_, 

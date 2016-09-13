@@ -74,16 +74,30 @@ public:
     }
 
     void prepareForBam(
+        const reference::ContigList &contigList,
         PackedFragmentBuffer &data,
         BinData::IndexType &dataIndex,
-        alignment::Cigar &splitCigars);
+        alignment::Cigar &splitCigars,
+        SplitInfoList &splitInfoList);
 
 private:
     void splitIfNeeded(
+        const reference::ContigList &contigList,
         PackedFragmentBuffer &data,
         PackedFragmentBuffer::Index &index,
         BinData::IndexType &splitIndexEntries,
-        alignment::Cigar &splitCigars);
+        alignment::Cigar &splitCigars,
+        SplitInfoList &splitInfoList);
+
+    alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator> makeSplit(
+        const alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator>& last,
+        alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator> current,
+        PackedFragmentBuffer& data,
+        PackedFragmentBuffer::Index& index,
+        const unsigned editDistance,
+        BinData::IndexType& splitIndexEntries,
+        alignment::Cigar& splitCigars,
+        SplitInfoList &splitInfoList);
 
     const unsigned splitGapLength_;
     const BarcodeBamMapping::BarcodeSampleIndexMap &barcodeOutputFileIndexMap_;

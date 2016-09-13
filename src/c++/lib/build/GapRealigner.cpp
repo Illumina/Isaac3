@@ -150,6 +150,11 @@ void GapRealigner::updatePairDetails(
             fragment.mateFStrandPosition_ = fragment.fStrandPosition_;
             mate.mateFStrandPosition_ = fragment.fStrandPosition_;
             mate.fStrandPosition_ = fragment.fStrandPosition_;
+            ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(fragment.clusterId_, " updated unaligned mate for\n" << fragment << "\n" << index << " mate: \n" << mate);
+        }
+        else
+        {
+            ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(fragment.clusterId_, " fragment has no mate to update\n" << fragment << "\n" << index);
         }
         return;
     }
@@ -172,6 +177,8 @@ void GapRealigner::updatePairDetails(
     mate.flags_.properPair_ = fragment.flags_.properPair_ =
         alignment::TemplateLengthStatistics::Nominal ==
             barcodeTemplateLengthStatistics.at(fragment.barcode_).checkModel(fragment, mate);
+
+    ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(fragment.clusterId_, " updated mate for\n" << fragment << "\n" << index << " mate: \n" << mate);
 }
 
 /**
@@ -1052,7 +1059,7 @@ GapRealigner::GapChoice GapRealigner::findBetterGapsChoice(
     ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(fragment.clusterId_, "Initial bestChoice " << bestChoice);
 
     fragmentGaps_.clear();
-    fragmentGaps_.addGaps(fragment.fStrandPosition_, fragment.cigarBegin(), fragment.cigarEnd());
+    fragmentGaps_.addGaps(index.pos_, index.cigarBegin_, index.cigarEnd_);
     const gapRealigner::GapsRange fragmentGapsRange = fragmentGaps_.allGaps();
 
     // 0 means none of the gaps apply. It also means the original alignment should be kept.
@@ -1089,7 +1096,7 @@ GapRealigner::GapChoice GapRealigner::findBetterGapsChoice(
                 //A-----C
                 //AGATCAG
                 //   ^pp
-                ISAAC_ASSERT_MSG(undoneAlignmentPos <= int64_t(undoPivotGap.getEndPos(false).getPosition()), "undoPivotPos pos " << index.pos_ << " overlapped by an existing deletion " << index);
+                ISAAC_ASSERT_MSG(undoneAlignmentPos <= int64_t(undoPivotGap.getEndPos(false).getPosition()), "undoPivotPos pos " << undoneAlignmentPos << " overlapped by an existing gap at " << undoPivotGap << " " << index << " " << fragment);
                 ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(fragment.clusterId_, "Testing choice " << int(choice) << ":" << TraceGapsChoice(choice, gaps) << " undoneAlignmentPos:" << undoneAlignmentPos);
 
                 ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID( fragment.clusterId_, "undo pivot: " << undoPivotGap.getEndPos(false));
@@ -1249,12 +1256,15 @@ bool GapRealigner::realign(
                             clipper.clip(reference, binEndPos, tmp, fragment);
                         }
 
-                        index = tmp;
-        //                ISAAC_THREAD_CERR << " before updatePairDetails=" << index << fragment << std::endl;
-//                        updatePairDetails(index, fragment, dataBuffer);
-        //                ISAAC_THREAD_CERR << "Applying choice done " << int(bestChoice) << " to gaps " << gaps << index << fragment << std::endl;
-                        makesSenseToTryAgain = realignGapsVigorously_;
-                        ret = true;
+                        if (index != tmp)
+                        {
+                            index = tmp;
+            //                ISAAC_THREAD_CERR << " before updatePairDetails=" << index << fragment << std::endl;
+    //                        updatePairDetails(index, fragment, dataBuffer);
+            //                ISAAC_THREAD_CERR << "Applying choice done " << int(bestChoice) << " to gaps " << gaps << index << fragment << std::endl;
+                            makesSenseToTryAgain = realignGapsVigorously_;
+                            ret = true;
+                        }
                     }
                     else
                     {

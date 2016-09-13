@@ -76,7 +76,8 @@ public:
         const flowcell::FlowcellLayoutList &flowCellLayoutList,
         const IncludeTags includeTags,
         const bool pessimisticMapQ,
-        const unsigned splitGapLength) :
+        const unsigned splitGapLength,
+        const unsigned expectedCoverage) :
             bin_(bin),
             binStatsIndex_(binStatsIndex),
             barcodeBamMapping_(barcodeBamMapping),
@@ -87,7 +88,8 @@ public:
             inputFileBuf_(),
             bamAdapter_(
                 maxReadLength, tileMetadataList, barcodeMetadataList,
-                contigMap, contigLists, forcedDodgyAlignmentScore, flowCellLayoutList, includeTags, pessimisticMapQ, splitGapLength)
+                contigMap, contigLists, forcedDodgyAlignmentScore, flowCellLayoutList, includeTags, pessimisticMapQ,
+                splitGapLength, splitInfoList_)
     {
         data_.reserve(bin_);
 
@@ -110,6 +112,16 @@ public:
             (bin.getTotalCigarLength() + bin.getTotalElements() *
                 // assume that to introduce k gaps one will need to have k+1 operations between the gaps
                 (realignedGapsPerFragment + realignedGapsPerFragment + 1)));
+
+        // assume each gap produces coverage of realignments and then gets split. This is extremely pessimistic and happens only for
+        // --split-gap_length == 1. Now, say all variants in human are gaps. Then 3M gaps with 60 being coverage and only one bin covering
+        // the entire genome, this will take about 3M*60*sizeof(SplitInfo) ~= 6G. However in reality we aim to break genome down
+        // into few hundred bins. And number of gaps is at least 10 times less than total number of variants. So, for the example above
+        // we will be allocating about 60M per bin and using about 1-10% of it.
+        // Drawbacks: overestimation will cause us to waste RAM. Underestimation will result in buffer reallocation during splitting
+        // which might result in bam generation failure (or might succeed).
+        // each split produced two records
+        splitInfoList_.reserve((bin_.getTotalGapCount() * expectedCoverage + bin_.getTotalSplitCount()) * 2);
 
         // summarize chunk sizes to get offsets
         dataDistribution_.tallyOffsets();
@@ -161,6 +173,8 @@ public:
     const GapRealignerMode realignGaps_;
     const gapRealigner::Gaps &knownIndels_;
     alignment::Cigar additionalCigars_;
+
+    SplitInfoList splitInfoList_;
     std::vector<gapRealigner::RealignerGaps> realignerGaps_;
     alignment::BinDataDistribution dataDistribution_;
     std::filebuf inputFileBuf_;

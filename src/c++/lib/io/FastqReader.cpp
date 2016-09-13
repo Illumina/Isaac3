@@ -286,37 +286,10 @@ void FastqReader::findQScoresEnd()
 
 std::size_t FastqReader::readCompressedFastq(std::istream &is, char *buffer, std::size_t amount)
 {
-    const std::size_t decompressedBytes = gzReader_.read(is, 0, buffer, amount);
+    const std::streamsize decompressedBytes = gzReader_.read(is, 0, buffer, amount);
     reachedEof_ = is.eof();
-    return decompressedBytes;
-
-//    const std::size_t amountOri = amount;
-//    while (amount)
-//    {
-//        const std::streamsize decompressedBytes =
-//            decompressor_.read(is, buffer, amount);
-//
-//        if (-1 == decompressedBytes)
-//        {
-////            ISAAC_THREAD_CERR << "FastqReader::readCompressedFastq std::size_t(-1) == decompressedBytes still need: " << amount << std::endl;
-///*
-//            if (!is.eof())
-//            {
-//                BOOST_THROW_EXCEPTION(common::IoException(errno, (boost::format(
-//                    "readCompressedFastq failed: %s, uncompressed offset %u") %
-//                    getPath() % getOffset(headerBegin_)).str()));
-//            }
-//*/
-//            reachedEof_ = true;
-//            return amountOri - amount;
-//        }
-//        amount -= decompressedBytes;
-//        buffer += decompressedBytes;
-////        ISAAC_THREAD_CERR << "FastqReader::readCompressedFastq read " << decompressedBytes <<
-////            " decompressedBytes, still need: " << amount << std::endl;
-//    }
-//
-//    return amountOri;
+    ISAAC_ASSERT_MSG(-1 != decompressedBytes || reachedEof_, "Did not reach eof while unable to uncompress anymore");
+    return -1 == decompressedBytes ? 0 : decompressedBytes;
 }
 
 std::size_t FastqReader::readBgzfFastq(std::istream &is, char *buffer, std::size_t amount)

@@ -40,23 +40,24 @@ public:
         Index(
             const isaac::reference::ReferencePosition pos,
             uint64_t dataOffset,
-            uint64_t mateDataOffset_,
+            uint64_t mateDataOffset,
             const unsigned *cigarBegin,
             const unsigned *cigarEnd,
             const bool reverse):
-                pos_(pos), dataOffset_(dataOffset), mateDataOffset_(dataOffset),
-                cigarBegin_(cigarBegin), cigarEnd_(cigarEnd), reverse_(reverse)
+                pos_(pos), dataOffset_(dataOffset), mateDataOffset_(mateDataOffset),
+                cigarBegin_(cigarBegin), cigarEnd_(cigarEnd), reverse_(reverse),
+                splitInfoOffset_(0), splitInfoCount_(0)
         {}
 
         Index(const FStrandFragmentIndex &idx, const io::FragmentAccessor &fragment) :
-            pos_(idx.fStrandPos_), dataOffset_(idx.dataOffset_), mateDataOffset_(idx.mateDataOffset_),
-            cigarBegin_(fragment.cigarBegin()), cigarEnd_(fragment.cigarEnd()), reverse_(fragment.isReverse()){}
+            Index(idx.fStrandPos_, idx.dataOffset_, idx.mateDataOffset_,
+                  fragment.cigarBegin(), fragment.cigarEnd(), fragment.isReverse()){}
         Index(const RStrandOrShadowFragmentIndex &idx, const io::FragmentAccessor &fragment) :
-            pos_(idx.fStrandPos_), dataOffset_(idx.dataOffset_), mateDataOffset_(idx.mateDataOffset_),
-            cigarBegin_(fragment.cigarBegin()), cigarEnd_(fragment.cigarEnd()), reverse_(fragment.isReverse()){}
+            Index(idx.fStrandPos_, idx.dataOffset_, idx.mateDataOffset_,
+                  fragment.cigarBegin(), fragment.cigarEnd(), fragment.isReverse()){}
         Index(const SeFragmentIndex &idx, const io::FragmentAccessor &fragment) :
-            pos_(idx.fStrandPos_), dataOffset_(idx.dataOffset_), mateDataOffset_(idx.dataOffset_),
-            cigarBegin_(fragment.cigarBegin()), cigarEnd_(fragment.cigarEnd()), reverse_(fragment.isReverse()){}
+            Index(idx.fStrandPos_, idx.dataOffset_, idx.dataOffset_,
+                  fragment.cigarBegin(), fragment.cigarEnd(), fragment.isReverse()){}
 
         bool hasMate() const
         {
@@ -86,14 +87,36 @@ public:
         // currently gap realigner updates shadow fragment.fStrandPosition_ without updating its index.
         // Ensure it is synchronized with fragment.fStrandPosition_ before using it
         isaac::reference::ReferencePosition pos_;
-        uint64_t dataOffset_;
+        std::size_t dataOffset_;
         // same as dataOffset_ for single-ended
-        uint64_t mateDataOffset_;
+        std::size_t mateDataOffset_;
 
         typedef const uint32_t * CigarIterator;
         CigarIterator cigarBegin_;
         CigarIterator cigarEnd_;
         bool reverse_;
+        // offset into list of SplitInfo structures
+        unsigned splitInfoOffset_;
+        unsigned splitInfoCount_;
+
+
+        friend std::ostream & operator <<(std::ostream &os, const PackedFragmentBuffer::Index &index)
+        {
+            os << "PackedFragmentBuffer::Index(" <<
+                index.pos_ << "," << index.dataOffset_ << "do " << index.mateDataOffset_ << "mdo, ";
+            return alignment::Cigar::toStream(index.cigarBegin_, index.cigarEnd_, os) << ")";
+        }
+
+        bool operator != (const Index &that)
+        {
+            ISAAC_ASSERT_MSG(that.dataOffset_ == dataOffset_, "Invalid comparison of index of different fragments " << *this << " vs " << that);
+            ISAAC_ASSERT_MSG(that.mateDataOffset_ == mateDataOffset_, "Invalid comparison of index of different fragments " << *this << " vs " << that);
+            ISAAC_ASSERT_MSG(that.reverse_ == reverse_, "Invalid comparison of index of different fragments " << *this << " vs " << that);
+
+            return that.pos_ != pos_ || std::distance(that.cigarBegin_, that.cigarEnd_) != std::distance(cigarBegin_, cigarEnd_) ||
+                cigarEnd_ != std::mismatch(cigarBegin_, cigarEnd_, that.cigarBegin_).first;
+        }
+
     };
 
 
@@ -193,12 +216,6 @@ public:
     }
 };
 
-inline std::ostream & operator <<(std::ostream &os, const PackedFragmentBuffer::Index &index)
-{
-    os << "PackedFragmentBuffer::Index(" <<
-        index.pos_ << "," << index.dataOffset_ << "do " << index.mateDataOffset_ << "mdo, ";
-    return alignment::Cigar::toStream(index.cigarBegin_, index.cigarEnd_, os) << ")";
-}
 
 } // namespace build
 } // namespace isaac

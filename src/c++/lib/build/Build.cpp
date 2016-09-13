@@ -364,6 +364,7 @@ Build::Build(const std::vector<std::string> &argv,
              const std::string &bamPuFormat,
              const bool bamProduceMd5,
              const std::vector<std::string> &bamHeaderTags,
+             const unsigned expectedCoverage,
              const double expectedBgzfCompressionRatio,
              const bool singleLibrarySamples,
              const bool keepDuplicates,
@@ -411,6 +412,7 @@ Build::Build(const std::vector<std::string> &argv,
      realignedGapsPerFragment_(realignedGapsPerFragment),
      clipSemialigned_(clipSemialigned),
      realignGaps_(realignGaps),
+     expectedCoverage_(expectedCoverage),
      expectedBgzfCompressionRatio_(expectedBgzfCompressionRatio),
      maxReadLength_(getMaxReadLength(flowcellLayoutList_)),
      includeTags_(includeTags),
@@ -446,7 +448,8 @@ Build::Build(const std::vector<std::string> &argv,
 
     threads_.execute(boost::bind(&Build::allocateThreadData, this, _1));
 
-    tasks_.reserve(bins_.size());
+    // when number of bins is smaller than number of threads, some complete tasks don't get erased before other tasks are added.
+    tasks_.reserve(std::max(bins_.size(), threads_.size()));
 
 //    testBinsFitInRam();
 }
@@ -598,7 +601,8 @@ void Build::reserveBuffers(
             new BinData(realignedGapsPerFragment_,
                         barcodeBamMapping_, barcodeMetadataList_,
                         realignGaps_, knownIndels_, bin, binStatsIndex, tileMetadataList_, contigMap_, contigLists, maxReadLength_,
-                        forcedDodgyAlignmentScore_,  flowcellLayoutList_, includeTags_, pessimisticMapQ_, splitGapLength_));
+                        forcedDodgyAlignmentScore_,  flowcellLayoutList_, includeTags_, pessimisticMapQ_, splitGapLength_,
+                        expectedCoverage_));
 
         unsigned outputFileIndex = 0;
         for(bam::BgzfBuffer &bgzfBuffer : bgzfBuffers)

@@ -24,21 +24,75 @@ namespace isaac
 namespace build
 {
 
+alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator> BamSerializer::makeSplit(
+    const alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator>& last,
+    alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator> current,
+    PackedFragmentBuffer& data,
+    PackedFragmentBuffer::Index& index,
+    const unsigned editDistance,
+    BinData::IndexType& splitIndexEntries,
+    alignment::Cigar& splitCigars,
+    SplitInfoList &splitInfoList)
+{
+    // create new entry
+    PackedFragmentBuffer::Index secondPart(index);
+    const std::size_t before = splitCigars.size();
+    if (current.reverse_ == last.reverse_)
+    {
+        // soft clip sequence that belongs to the previous part of the split
+        splitCigars.addOperation(last.sequenceOffset_, alignment::Cigar::SOFT_CLIP);
+    }
+    secondPart.pos_ = current.referencePos_;
+    splitCigars.addOperations(current.cigarIt_, index.cigarEnd_);
+    secondPart.cigarBegin_ = &splitCigars.front() + before;
+    secondPart.cigarEnd_ = &splitCigars.back() + 1;
+    secondPart.reverse_ = current.reverse_;
+
+    //patch the old one
+    const PackedFragmentBuffer::Index::CigarIterator oldBegin = index.cigarBegin_;
+    index.cigarBegin_ = &splitCigars.back() + 1;
+    splitCigars.addOperations(oldBegin, last.cigarIt_);
+    const unsigned sequenceLeftover = data.getFragment(index).readLength_ - last.sequenceOffset_;
+    if (sequenceLeftover)
+    {
+        // soft clip sequence that belongs to the next part of the split
+        splitCigars.addOperation(sequenceLeftover, alignment::Cigar::SOFT_CLIP);
+    }
+    index.cigarEnd_ = &splitCigars.back() + 1;
+    splitIndexEntries.push_back(index);
+    splitInfoList.push_back(index);
+    splitInfoList.back().editDistance_ = editDistance;
+
+    index = secondPart;
+    //change iterator to travel over the CIGAR of the new entry
+    current = alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator>(
+        index.cigarBegin_, index.cigarEnd_, index.pos_, current.reverse_, current.readLength_);
+
+    ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(data.getFragment(index).clusterId_, "Split into " << index << " and " << secondPart << " editDistance:" << editDistance);
+    return current;
+}
+
 /**
  * \brief split into multiple bam segments if it cannot be represented as single one.
  */
 void BamSerializer::splitIfNeeded(
+    const reference::ContigList &contigList,
     PackedFragmentBuffer &data,
     PackedFragmentBuffer::Index &index,
     BinData::IndexType &splitIndexEntries,
-    alignment::Cigar &splitCigars)
+    alignment::Cigar &splitCigars,
+    SplitInfoList &splitInfoList)
 {
+    const BinData::IndexType::iterator before = splitIndexEntries.end();
     // update all index record positions before sorting as they may have been messed up by gap realignment
     io::FragmentAccessor &fragment = data.getFragment(index);
     index.pos_ = fragment.fStrandPosition_;
-    alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator> last(index.cigarBegin_, index.cigarEnd_, index.pos_, fragment.isReverse(), fragment.readLength_);
-    for (alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator> current = last;
-        !current.end(); ++current)
+    alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator> last(
+        index.cigarBegin_, index.cigarEnd_, index.pos_, fragment.isReverse(), fragment.readLength_);
+    unsigned splits = 0;
+    unsigned lastEditDistance = 0;
+    alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator> current = last;
+    for (; !current.end(); ++current)
     {
         if (current.referencePos_.getContigId() != last.referencePos_.getContigId() ||
             current.referencePos_ < last.referencePos_ ||
@@ -47,60 +101,54 @@ void BamSerializer::splitIfNeeded(
                 (current.referencePos_ - last.referencePos_) > splitGapLength_))
         {
             ISAAC_ASSERT_MSG(splitIndexEntries.size() < splitIndexEntries.capacity(), "New entries must not cause buffer reallocation");
-            ISAAC_ASSERT_MSG(splitCigars.size() + std::distance(index.cigarBegin_, index.cigarEnd_) * 2 <= splitCigars.capacity(),
-                "New entries must not cause cigar buffer reallocation");
+            ISAAC_ASSERT_MSG(splitCigars.size() + std::distance(index.cigarBegin_, index.cigarEnd_) * 2 <= splitCigars.capacity(), "New entries must not cause cigar buffer reallocation");
 
-            // create new entry
-            PackedFragmentBuffer::Index secondPart(index);
+            current = makeSplit(last, current, data, index, lastEditDistance, splitIndexEntries, splitCigars, splitInfoList);
+            lastEditDistance = 0;
 
-            const std::size_t before = splitCigars.size();
-            if (current.reverse_ == last.reverse_)
-            {
-                // soft clip sequence that belongs to the previous part of the split
-                splitCigars.addOperation(last.sequenceOffset_, alignment::Cigar::SOFT_CLIP);
-            }
-
-            secondPart.pos_ = current.referencePos_;
-            splitCigars.addOperations(current.cigarIt_, index.cigarEnd_);
-            secondPart.cigarBegin_ = &splitCigars.front() + before;
-            secondPart.cigarEnd_ = &splitCigars.back() + 1;
-            secondPart.reverse_ = current.reverse_;
-            splitIndexEntries.push_back(secondPart);
-
-            //patch the old one
-            const PackedFragmentBuffer::Index::CigarIterator oldBegin = index.cigarBegin_;
-            index.cigarBegin_ = &splitCigars.back() + 1;
-            splitCigars.addOperations(oldBegin, last.cigarIt_);
-
-            const unsigned sequenceLeftover = data.getFragment(index).readLength_ - last.sequenceOffset_;
-            if (sequenceLeftover)
-            {
-                // soft clip sequence that belongs to the next part of the split
-                splitCigars.addOperation(sequenceLeftover, alignment::Cigar::SOFT_CLIP);
-            }
-            index.cigarEnd_ = &splitCigars.back() + 1;
-
-            //change iterator to travel over the CIGAR of the new entry
-            current = alignment::CigarPosition<PackedFragmentBuffer::Index::CigarIterator>(secondPart.cigarBegin_, secondPart.cigarEnd_, secondPart.pos_, current.reverse_, fragment.readLength_);
-
-            fragment.flags_.properPair_ = false;
-            io::FragmentAccessor &mate = data.getMate(index);
-            mate.flags_.properPair_ = false;
-
-            ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(fragment.clusterId_, "Split into " << index << " and " << secondPart);
+            ++splits;
         }
+        else
+        {
+            lastEditDistance += computeEditDistance(
+                contigList, last, current, fragment.isReverse(), fragment.basesBegin(), fragment.basesEnd());
+        }
+
         last = current;
+    }
+
+    if (splits)
+    {
+        fragment.flags_.properPair_ = false;
+        fragment.flags_.splitAlignment_ = true;
+        io::FragmentAccessor& mate = data.getMate(index);
+        mate.flags_.properPair_ = false;
+
+        index.splitInfoOffset_ = splitInfoList.size() - splits;
+        index.splitInfoCount_ = splits + 1;
+        splitInfoList.push_back(index);
+        splitInfoList.back().editDistance_ = computeEditDistance(
+                contigList, last, current,
+                fragment.isReverse(), fragment.basesBegin(), fragment.basesBegin() + fragment.readLength_);
+        BOOST_FOREACH(PackedFragmentBuffer::Index &split, std::make_pair(before, splitIndexEntries.end()))
+        {
+            split.splitInfoOffset_ = index.splitInfoOffset_;
+            split.splitInfoCount_ = index.splitInfoCount_;
+        }
     }
 }
 
 void BamSerializer::prepareForBam(
+    const reference::ContigList &contigList,
     PackedFragmentBuffer &data,
     BinData::IndexType &dataIndex,
-    alignment::Cigar &splitCigars)
+    alignment::Cigar &splitCigars,
+    SplitInfoList &splitInfoList)
 {
-    BOOST_FOREACH(PackedFragmentBuffer::Index &index, dataIndex)
+    // Caution, we will be appending to dataIndex
+    BOOST_FOREACH(PackedFragmentBuffer::Index &index, std::make_pair(dataIndex.begin(), dataIndex.end()))
     {
-        splitIfNeeded(data, index, dataIndex, splitCigars);
+        splitIfNeeded(contigList, data, index, dataIndex, splitCigars, splitInfoList);
     }
 
     std::sort(dataIndex.begin(), dataIndex.end(), boost::bind(&PackedFragmentBuffer::orderForBam, boost::ref(data), _1, _2));

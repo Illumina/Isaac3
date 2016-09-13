@@ -32,6 +32,27 @@ namespace isaac
 namespace build
 {
 
+
+struct SplitInfo
+{
+    SplitInfo(const PackedFragmentBuffer::Index &index):
+        pos_(index.pos_), cigarBegin_(index.cigarBegin_), cigarEnd_(index.cigarEnd_), editDistance_(0)
+    {
+        pos_.setReverse(index.reverse_);
+    }
+    isaac::reference::ReferencePosition pos_;
+    typedef const uint32_t * CigarIterator;
+    CigarIterator cigarBegin_;
+    CigarIterator cigarEnd_;
+    unsigned editDistance_;
+};
+
+#ifndef _GLIBCXX_DEBUG
+BOOST_STATIC_ASSERT(sizeof(SplitInfo) == 32);
+#endif
+
+typedef std::vector<SplitInfo> SplitInfoList;
+
 template<typename ContainerT>
 std::size_t beginSaPart(const isaac::reference::ReferencePosition& pos,
                  const bool reverse,
@@ -137,144 +158,67 @@ unsigned computeEditDistance(
 
 template<typename ExcludeCigarIteratorT, typename CurrentCigarIteratorT>
 bool notTheExcludeAlignment(
-    const reference::ReferencePosition& excludePos, const bool excludeReverse,
+    reference::ReferencePosition excludePos, const bool excludeReverse,
     const ExcludeCigarIteratorT excludeCigarBegin,
     const ExcludeCigarIteratorT excludeCigarEnd,
-    alignment::Cigar::value_type excludeCigarAutoSoftClipComponent,
-    const reference::ReferencePosition& currentPos, const bool currentReverse,
+    const reference::ReferencePosition& currentPos,
     const CurrentCigarIteratorT currentCigarBegin,
-    const CurrentCigarIteratorT currentCigarEnd,
-    const unsigned int autoSoftClip)
+    const CurrentCigarIteratorT currentCigarEnd)
 {
     const std::size_t excludeCigarLength = std::distance(excludeCigarBegin, excludeCigarEnd);
-    if (excludePos != currentPos || excludeReverse != currentReverse)
+    ISAAC_ASSERT_MSG(!excludePos.reverse(), "Unexpected use of reverse bit on index positions. excludePos:" << excludePos << " currentPos:" << currentPos);
+    excludePos.setReverse(excludeReverse);
+    if (excludePos != currentPos)
     {
         return true;
     }
     const unsigned currentCigarLength = std::distance(currentCigarBegin, currentCigarEnd);
-    if (!autoSoftClip)
-    {
-        return currentCigarLength != excludeCigarLength ||
-            currentCigarEnd != std::mismatch(currentCigarBegin, currentCigarEnd, excludeCigarBegin).first;
-    }
-    else if (currentCigarLength + 1 != excludeCigarLength)
-    {
-        return true;
-    }
 
-    const alignment::Cigar::Component decoded = alignment::Cigar::decode(excludeCigarAutoSoftClipComponent);
-    return alignment::Cigar::SOFT_CLIP != decoded.second || autoSoftClip != decoded.first;
+    return currentCigarLength != excludeCigarLength ||
+        currentCigarEnd != std::mismatch(currentCigarBegin, currentCigarEnd, excludeCigarBegin).first;
 }
 
 /**
  * \brief Serializes cigar to a container in bam SA tag format
  *
- * \return true if the alignment had any splits in it
+ * \return true if alignment is the primary one
  */
 template <typename CigarIteratorT, typename ContainerT>
-static bool makeSaTagString(
-    const io::FragmentAccessor &fragment,
+bool makeSaTagString(
     const reference::ReferencePosition &excludePos,
     const bool excludeReverse,
     const CigarIteratorT excludeCigarBegin, const CigarIteratorT excludeCigarEnd,
     const unsigned mapQ,
     const isaac::reference::ContigList &contigList,
+    const SplitInfoList &splitInfoList,
+    const unsigned splitInfoOffset,
+    unsigned splitInfoCount,
     ContainerT &resultBuffer,
-    const unsigned splitGapLength,
     unsigned &excludeEditDistance)
 {
+    int ret = -1;
 //    ISAAC_THREAD_CERR << "makeSaTagString excludeCigar:" << alignment::Cigar::toString(excludeCigarBegin, excludeCigarEnd) << std::endl;
-
-    excludeEditDistance = -1U;
-    std::size_t currentBufferOffset = beginSaPart(fragment.getFStrandReferencePosition(), fragment.isReverse(), contigList, resultBuffer);
-
-    // First component in the compound cigar to denote the current alignment
-    alignment::CigarPosition<const unsigned *> currentBegin(
-        fragment.cigarBegin(), fragment.cigarEnd(),
-        fragment.getFStrandReferencePosition(), fragment.isReverse(), fragment.readLength_);
-    alignment::CigarPosition<const unsigned *> current = currentBegin;
-    // Last processed component in thecompound cigar
-    alignment::CigarPosition<const unsigned *> last = current;
-    bool splitsDetected = false;
-    unsigned currentEditDistance = 0;
-    unsigned lastFrontAutoSoftClip = 0;
-    for (; !current.end(); ++current)
+    // processing backwards just because
+    while (splitInfoCount--)
     {
-        if (current.referencePos_.getContigId() != last.referencePos_.getContigId() ||
-            current.referencePos_ < last.referencePos_ ||
-            current.reverse_ != last.reverse_ ||
-            ((current.sequenceOffset_ - last.sequenceOffset_) != (current.referencePos_ - last.referencePos_) &&
-                (current.referencePos_ - last.referencePos_) > splitGapLength))
+        const SplitInfo &splitInfo = splitInfoList.at(splitInfoOffset + splitInfoCount);
+        if (notTheExcludeAlignment(
+            excludePos, excludeReverse, excludeCigarBegin, excludeCigarEnd, splitInfo.pos_, splitInfo.cigarBegin_, splitInfo.cigarEnd_))
         {
-            ISAAC_ASSERT_MSG(!splitsDetected, "Only one split per CIGAR is supported at the moment: " <<
-                             alignment::Cigar::toString(fragment.cigarBegin(), fragment.cigarEnd()) << " " <<
-                             oligo::bclToString(fragment.basesBegin(), fragment.readLength_));
-
-            if (notTheExcludeAlignment(
-                excludePos, excludeReverse, excludeCigarBegin, excludeCigarEnd, *(excludeCigarEnd - 1),
-                currentBegin.referencePos_, currentBegin.reverse_,
-                currentBegin.cigarIt_, last.cigarIt_, fragment.readLength_ - last.sequenceOffset_))
-            {
-                endSaPart(currentBegin.cigarIt_, last.cigarIt_,
-                          fragment.readLength_ - last.sequenceOffset_, mapQ, currentEditDistance, resultBuffer);
-                splitsDetected = true;
-            }
-            else
-            {
-                // exclude current SA component from the tag.
-                ISAAC_ASSERT_MSG(-1U == excludeEditDistance, "Excluding more than once:" << fragment);
-                excludeEditDistance = currentEditDistance;
-                resultBuffer.resize(currentBufferOffset);
-            }
-            currentEditDistance = 0;
-
-            currentBufferOffset = beginSaPart(current.referencePos_, current.reverse_, contigList, resultBuffer);
-            if (current.reverse_ == last.reverse_)
-            {
-                common::appendUnsignedNumber(resultBuffer, last.sequenceOffset_);
-                resultBuffer.push_back('S');
-                lastFrontAutoSoftClip = last.sequenceOffset_;
-            }
-            else
-            {
-                lastFrontAutoSoftClip = 0;
-            }
-            currentBegin = current;
+            beginSaPart(splitInfo.pos_, splitInfo.pos_.reverse(), contigList, resultBuffer);
+            endSaPart(splitInfo.cigarBegin_, splitInfo.cigarEnd_, 0, mapQ, splitInfo.editDistance_, resultBuffer);
         }
         else
         {
-            currentEditDistance += computeEditDistance(
-                contigList, last, current, fragment.isReverse(), fragment.basesBegin(), fragment.basesBegin() + fragment.readLength_);
-
+            excludeEditDistance = splitInfo.editDistance_;
+            ret = splitInfoCount;
         }
-        last = current;
     }
 
-    currentEditDistance += computeEditDistance(
-        contigList, last, current, fragment.isReverse(), fragment.basesBegin(), fragment.basesBegin() + fragment.readLength_);
-    if (notTheExcludeAlignment(
-        excludePos, excludeReverse, excludeCigarBegin, excludeCigarEnd, *excludeCigarBegin,
-        currentBegin.referencePos_, currentBegin.reverse_, currentBegin.cigarIt_, current.cigarIt_, lastFrontAutoSoftClip))
-    {
-
-        endSaPart(currentBegin.cigarIt_, current.cigarIt_,
-                  // compound cigar must cover all the sequence bases to the end. Automatic soft clipping
-                  // is only performed at the points where compound cigar gets broken up.
-                  0,//current.reverse_ != prevEnd.reverse_ ?  prevEnd.sequenceOffset_ : 0,
-                  mapQ, currentEditDistance, resultBuffer);
-        splitsDetected = true;
-    }
-    else
-    {
-        // exclude current SA component from the tag.
-        ISAAC_ASSERT_MSG(-1U == excludeEditDistance, "Excluding more than once:" << fragment);
-        excludeEditDistance = currentEditDistance;
-        resultBuffer.resize(currentBufferOffset);
-    }
-
-
-
-    return splitsDetected;
+    ISAAC_ASSERT_MSG(-1 != ret, "No match in splitInfoList found for: " << excludePos);
+    // If we are not first in the list we are the supplementary one
+    return !ret;
+;
 }
 
 } // namespace build

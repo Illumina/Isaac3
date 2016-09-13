@@ -63,7 +63,6 @@ struct IncludeTags
     bool includeZY_;
 } ;
 
-
 class FragmentAccessorBamAdapter
 {
     const unsigned maxReadLength_;
@@ -90,11 +89,13 @@ class FragmentAccessorBamAdapter
     const IncludeTags includeTags_;
     const bool pessimisticMapQ_;
     const unsigned splitGapLength_;
+    const SplitInfoList &splitInfoList_;
 
     common::StaticVector<char, 10240> saTagBuffer_;
     // If this is part of split alignment, conventional NM represents edit distance for the entire alignment. saNM_ is
     // the edit distance of this part
     unsigned saNM_;
+    bool primaryAlignment_;
 
 public:
     FragmentAccessorBamAdapter(
@@ -107,7 +108,8 @@ public:
         const flowcell::FlowcellLayoutList &flowCellLayoutList,
         const IncludeTags includeTags,
         const bool pessimisticMapQ,
-        const unsigned splitGapLength
+        const unsigned splitGapLength,
+        const SplitInfoList &splitInfoList
         ) :
         maxReadLength_(maxReadLength), tileMetadataList_(tileMetadataList),
         barcodeMetadataList_(barcodeMetadataList),
@@ -118,7 +120,9 @@ public:
         includeTags_(includeTags),
         pessimisticMapQ_(pessimisticMapQ),
         splitGapLength_(splitGapLength),
-        saNM_(-1U)
+        splitInfoList_(splitInfoList),
+        saNM_(-1U),
+        primaryAlignment_(false)
     {
     }
 
@@ -136,16 +140,13 @@ public:
         saTagBuffer_.clear();
         saNM_ = -1U;
 
-        ISAAC_VERIFY_MSG(
-            !pFragment_->isAligned() || !pFragment_->flags_.splitAlignment_ ||
-            makeSaTagString(
-                *pFragment_,
-                pos_,
-                reverse_,
-                cigarBegin_ ,cigarEnd_,
-                mapq(),
-                contigLists_.at(barcodeMetadataList_.at(pFragment_->barcode_).getReferenceIndex()),
-                saTagBuffer_, splitGapLength_, saNM_), "Split alignment did not produce SA tag:" << *pFragment_);
+        primaryAlignment_ = !index.splitInfoCount_ || makeSaTagString(
+            pos_,
+            reverse_,
+            cigarBegin_ ,cigarEnd_,
+            mapq(),
+            contigLists_.at(barcodeMetadataList_.at(pFragment_->barcode_).getReferenceIndex()),
+            splitInfoList_, index.splitInfoOffset_, index.splitInfoCount_, saTagBuffer_, saNM_);
 
         return *this;
     }
@@ -416,7 +417,7 @@ public:
 
         bs.set(9, pFragment_->flags_.failFilter_);
         bs.set(10, pFragment_->flags_.duplicate_);
-        bs.set(11, pFragment_->flags_.splitAlignment_ && isSupplementaryAlignment());
+        bs.set(11, pFragment_->flags_.splitAlignment_ && !primaryAlignment_);
         return bs.to_ulong();
     }
 
@@ -441,29 +442,6 @@ public:
     int tlen() const { return pFragment_->bamTlen_; }
 
     int observedLength() const { return alignment::computeObservedLength(cigarBegin_, cigarEnd_); }
-private:
-
-    /**
-     * \brief Alignment designated by the beginning of the compound CIGAR is primary. All others are supplementary
-     */
-    bool isSupplementaryAlignment() const
-    {
-        if (reverse_ != pFragment_->isReverse() || pos_ != pFragment_->fStrandPosition_ ||
-            pFragment_->cigarLength_ <= std::distance(cigarBegin_ ,cigarEnd_))
-        {
-            return true;
-        }
-
-        // compare up to one less than current CIGAR. Assumption is that current CIGAR contains a soft-clip for the
-        // rest of the sequence at the end.
-        if (cigarEnd_ - 1 == std::mismatch(cigarBegin_, cigarEnd_ - 1, pFragment_->cigarBegin()).first)
-        {
-            // our cigar matches beginning of the original unsplit cigar, we're the primary alignment
-            return false;
-        }
-
-        return true;
-    }
 };
 
 } // namespace build
