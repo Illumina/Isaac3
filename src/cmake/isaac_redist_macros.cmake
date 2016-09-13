@@ -25,16 +25,16 @@ macro(find_package_version libname version)
   string(TOUPPER ${libname} ${libname}_UPPER)
 
   find_package("${libname}" ${version})
- 
+
   if(${${libname}_UPPER}_FOUND)
-    if("${${${libname}_UPPER}_VERSION_STRING}" STREQUAL "${version}")
-       message(" Found: ${libname}, correct version ${version}")
+    if("${version}" VERSION_LESS "${${${libname}_UPPER}_VERSION_STRING}")
+       message(" Found: ${libname}, version OK")
        message("   ${${libname}_UPPER}_INCLUDE_DIR = ${${${libname}_UPPER}_INCLUDE_DIR}")
        message("   ${${libname}_UPPER}_LIBRARIES = ${${${libname}_UPPER}_LIBRARIES}")
-    else("${${${libname}_UPPER}_VERSION_STRING}" STREQUAL "${version}")
+    else("${version}" VERSION_LESS "${${${libname}_UPPER}_VERSION_STRING}")
        message(" Not found: ${libname}, incorrect version ( ${${${libname}_UPPER}_VERSION} )")
        set(${${libname}_UPPER}_FOUND "FALSE")
-    endif("${${${libname}_UPPER}_VERSION_STRING}" STREQUAL "${version}")
+    endif("${version}" VERSION_LESS "${${${libname}_UPPER}_VERSION_STRING}")
   endif(${${libname}_UPPER}_FOUND)
 
 endmacro(find_package_version libname version)

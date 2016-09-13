@@ -125,6 +125,8 @@ set (LIBXSLT_INSTAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../redist")
 set (iSAAC_LIBXSLT_VERSION 1.1.26)
 set (LIBXSLT_REDIST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../redist")
 
+set (iSAAC_LIBEXSLT_VERSION 0.8.15)
+
 # globals and macros
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 set (iSAAC_GLOBALS_CMAKE "${CMAKE_SOURCE_DIR}/cmake/globals.cmake")
