@@ -1,3 +1,6 @@
+iSAAC-03.16.09.21
+* SAAC-1051 incorrect detection of libxslt version. Github pull #1
+
 iSAAC-03.16.09.13
 * SAAC-1037 ERROR: ***** Internal Program Error - assertion ([...]) failed in isaac::build::GapRealigner::GapChoice github #5
 * SAAC-1035 --realign-vigorously yes produces infinite loop and crashes

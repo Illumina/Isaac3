@@ -118,27 +118,30 @@ set(REINSTDIR ${CMAKE_BINARY_DIR}/bootstrap)
 if((NOT HAVE_LIBXML2) OR (NOT HAVE_LIBXSLT))
   find_package_version(LibXml2 ${iSAAC_LIBXML2_VERSION})
   find_package_version(LibXslt ${iSAAC_LIBXSLT_VERSION})
+  find_package_version(LibExslt ${iSAAC_LIBEXSLT_VERSION})
 endif((NOT HAVE_LIBXML2) OR (NOT HAVE_LIBXSLT))
 
-if((NOT HAVE_LIBXML2) OR (NOT HAVE_LIBXSLT))
+if((NOT LIBXML2_FOUND) OR (NOT LIBXSLT_FOUND) OR (NOT LIBEXSLT_FOUND))
   redist_package(LIBXML2 ${iSAAC_LIBXML2_VERSION} 
                  "--prefix=${REINSTDIR};--without-modules;--without-http;--without-ftp;--without-python;--without-threads;--without-schematron;--without-debug;--without-iconv")
   find_library_redist(LIBXML2 ${REINSTDIR} libxml/xpath.h xml2)
   redist_package(LIBXSLT ${iSAAC_LIBXSLT_VERSION} "--prefix=${REINSTDIR};--with-libxml-prefix=${REINSTDIR};--without-plugins;--without-crypto")
-  find_library_redist(LIBEXSLT ${REINSTDIR} libexslt/exslt.h exslt)
+find_library_redist(LIBEXSLT ${REINSTDIR} libexslt/exslt.h exslt)
   find_library_redist(LIBXSLT ${REINSTDIR} libxslt/xsltconfig.h xslt)
-endif((NOT HAVE_LIBXML2) OR (NOT HAVE_LIBXSLT))
+endif((NOT LIBXML2_FOUND) OR (NOT LIBXSLT_FOUND) OR (NOT LIBEXSLT_FOUND))
 
 include_directories(BEFORE SYSTEM ${LIBXML2_INCLUDE_DIR})
 include_directories(BEFORE SYSTEM ${LIBXSLT_INCLUDE_DIR})
 include_directories(BEFORE SYSTEM ${LIBEXSLT_INCLUDE_DIR})
 set(iSAAC_DEP_LIB ${iSAAC_DEP_LIB} "${LIBEXSLT_LIBRARIES}" "${LIBXSLT_LIBRARIES}" "${LIBXML2_LIBRARIES}")
 
-if(NOT iSAAC_AVX2)
-  set(iSAAC_VECTORIZATION "-msse2")
-else(NOT iSAAC_AVX2)
-  set(iSAAC_VECTORIZATION "-mavx2")
-endif(NOT iSAAC_AVX2)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^x86_64$")
+  if(NOT iSAAC_AVX2)
+    set(iSAAC_VECTORIZATION "-msse2")
+  else(NOT iSAAC_AVX2)
+    set(iSAAC_VECTORIZATION "-mavx2")
+  endif(NOT iSAAC_AVX2)
+endif (CMAKE_SYSTEM_PROCESSOR MATCHES "^x86_64$")
 
 set (CMAKE_CXX_FLAGS "$ENV{CXX_FLAGS} $ENV{CXXFLAGS} -fpermissive -fopenmp ${iSAAC_VECTORIZATION} -Wall -Wextra -Wunused -Wno-long-long -Wsign-compare -Wpointer-arith -DBOOST_SYSTEM_API_CONFIG_HPP -DBOOST_POSIX_API " CACHE STRING "g++ flags" FORCE)
 # -03 causes loop unrolling that prevent autovectorization of some parts of BandedSmithWaterman
@@ -159,14 +162,11 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     string(REGEX REPLACE "^([0-9])\\.[0-9]\\.[0-9]" "\\1" major_version ${version})
     string(REGEX REPLACE "^[0-9]\\.([0-9])\\.[0-9]" "\\1" minor_version ${version})
     string(REGEX REPLACE "^[0-9]\\.[0-9]\\.([0-9])" "\\1" patch_version ${version})
-    if    (major_version LESS 4 OR (major_version EQUAL 4 AND (minor_version LESS 4 OR (minor_version EQUAL 4 AND patch_version LESS 3) ) ) )
+    if    (major_version LESS 4 OR (major_version EQUAL 4 AND (minor_version LESS 7 OR (minor_version EQUAL 7 AND patch_version LESS 3) ) ) )
         message (FATAL_ERROR "Unsupported GNU C++ compiler: g++ version ${version}: "
-                             "only g++ versions >= 4.4.3 are supported")
-    endif (major_version LESS 4 OR (major_version EQUAL 4 AND (minor_version LESS 4 OR (minor_version EQUAL 4 AND patch_version LESS 3) ) ) )
+                             "only g++ versions >= 4.7.3 are supported")
+    endif (major_version LESS 4 OR (major_version EQUAL 4 AND (minor_version LESS 7 OR (minor_version EQUAL 7 AND patch_version LESS 3) ) ) )
 
-    set("${CMAKE_CXX_COMPILER_ID}${major_version}" true)
-    set("${CMAKE_CXX_COMPILER_ID}${major_version}${minor_version}" true)
-    set("${CMAKE_CXX_COMPILER_ID}${major_version}${minor_version}${patch_version}" true)
     message (STATUS "using compiler: gcc version ${version}")
 
 endif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -193,31 +193,7 @@ else()
     message (STATUS "No ccache found")
 endif() 
 
-##
-## Suppress spurious warnings in less recent compilers
-##
-if    (NOT GNU42)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter ")
-endif (NOT GNU42)
-
-if    (GNU412 OR GNU42 OR GNU43)
-    ## Before 4.1.2, pedantic breaks on boost lambda expressions
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic ")
-endif (GNU412 OR GNU42 OR GNU43)
-
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^i[67]86$")
-    ##
-    ## Use scalar floating point instructions from the SSE instruction set.
-    ## Note: Pentium3 SSE supports only single precision arithmetics
-    ##
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse -mfpmath=sse")
-endif (CMAKE_SYSTEM_PROCESSOR MATCHES "^i[67]86$")
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^i[345]86$")
-    ##
-    ## Prevent using 80bits registers (more consistent rounding)
-    ##
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffloat-store")
-endif (CMAKE_SYSTEM_PROCESSOR MATCHES "^i[345]86$")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter ")
 
 if    (CYGWIN)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DISAAC_CYGWIN -Wl,--stack,4194304")
