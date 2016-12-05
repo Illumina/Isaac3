@@ -176,7 +176,7 @@ InsertIt FastqReader::extractBcl(const flowcell::ReadMetadata &readMetadata, Ins
             if ((1 << 6) <= baseQuality)
             {
                 BOOST_THROW_EXCEPTION(FastqFormatException((boost::format("Invalid quality %d found in %s at offset %u. Base quality scores [0-63] supported only. baseq0=%d") %
-                    unsigned(baseQuality) % getPath() % getOffset(baseCallsIt) % q0Base_).str()));
+                    unsigned(baseQuality) % getPath() % getOffset(qScoresIt) % q0Base_).str()));
             }
             *it = baseValue | (baseQuality << 2);
         }

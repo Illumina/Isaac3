@@ -194,7 +194,7 @@ void BarcodeResolver::generateBarcodeMismatches(
     const std::string &sequence = barcodeMetadata.getSequence();
     ISAAC_ASSERT_MSG(!sequence.empty(), "only default barcode can have an empty sequence and it must not be passed here");
 
-    static const oligo::Translator<true> translator;
+    static const oligo::Translator<true> translator = {};
 
     // decode kmer from string and note all component lengths and how many mismatch sequences can each
     // component produce given its length and command-line mismatch count

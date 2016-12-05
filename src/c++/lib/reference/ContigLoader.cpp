@@ -44,7 +44,7 @@ void loadContig(
         BOOST_THROW_EXCEPTION(IoException(errno, message.str()));
     }
 //        ISAAC_THREAD_CERR << (boost::format("Contig seek %s (%3d:%8d): %s") % xmlContig.name_ % xmlContig.index_ % xmlContig.totalBases_ % xmlContig.filePath_).str() << std::endl;
-    static const oligo::Translator<true> translator;
+    static const oligo::Translator<true> translator = {};
     char base = 0;
     std::size_t acgtBases = 0;
     while(is && (contig.size() < xmlContig.totalBases_) && is.get(base))

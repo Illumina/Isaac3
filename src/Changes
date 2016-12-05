@@ -1,3 +1,12 @@
+iSAAC-03.16.12.05
+* SAAC-1142 IBM XL compiler compatibility
+
+iSAAC-03.16.11.29
+* SAAC-1128 Valid fastq fails with incorrect base quality message
+
+iSAAC-03.16.11.09
+* SAAC-1118 destroyed Build tasks never get deleted from task list causing segfaults
+
 iSAAC-03.16.09.21
 * SAAC-1051 incorrect detection of libxslt version. Github pull #1
 

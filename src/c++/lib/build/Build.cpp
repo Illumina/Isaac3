@@ -818,19 +818,22 @@ bool Build::executePreemptTask(
         --task.threadsIn_;
         throw;
     }
-    --task.threadsIn_;
-    //    ISAAC_THREAD_CERR << "preempt task " << task << " on thread " << threadNumber << "in:" << task->threadsIn_ << " done" << std::endl;
-    //stop new threads entering the task;
+
+    bool ret = false;
+
     if (!task.complete_)
     {
+        //Threads don't come out of execute until there is nothing left to do.
+        // stop new threads entering the task;
         task.complete_ = true;
-        return true;
+        ret = true;
     }
-
-    return false;
+    --task.threadsIn_;
+    //    ISAAC_THREAD_CERR << "preempt task " << task << " on thread " << threadNumber << "in:" << task->threadsIn_ << " done" << std::endl;
+    return ret || !task.threadsIn_;
 }
 
-bool Build::preempt(boost::unique_lock<boost::mutex> &lock, const unsigned threadNumber, Task *ownTask)
+bool Build::processMostUrgent(boost::unique_lock<boost::mutex> &lock, const unsigned threadNumber, Task *ownTask)
 {
     // find the lowest priority incomplete and not busy task that is not higher than ownTask unless ownTask is 0
     Tasks::iterator highesttPriorityTask = std::min_element(
@@ -874,20 +877,22 @@ bool Build::preempt(boost::unique_lock<boost::mutex> &lock, const unsigned threa
     ISAAC_ASSERT_MSG(maxComputers_, "Unexpected maxComputers_ 0");
     --maxComputers_;
 
+    bool ret = false;
     ISAAC_BLOCK_WITH_CLENAUP(boost::bind(&Build::returnComputeSlot, this, _1))
     {
         //    ISAAC_THREAD_CERR << "preempt task " << task << " on thread " << threadNumber << "in:" << task->threadsIn_ << std::endl;
-        if (executePreemptTask(lock, *task, threadNumber))
-        {
-            // cleanup newly completed tasks
-            tasks_.erase(std::remove_if(tasks_.begin(), tasks_.end(), [](const Task *task) {return !task->threadsIn_ && task->complete_;}), tasks_.end());
-        }
+        ret = executePreemptTask(lock, *task, threadNumber);
     }
 
-    return true;
+    if (ret)
+    {
+        stateChangedCondition_.notify_all();
+    }
+
+    return ret;
 }
 
-bool Build::preemptCompute(
+bool Build::yieldIfPossible(
     boost::unique_lock<boost::mutex>& lock,
     const std::size_t threadNumber,
     Task *task)
@@ -895,7 +900,7 @@ bool Build::preemptCompute(
     bool stateMightHaveChanged = false;
     if (maxComputers_)
     {
-        stateMightHaveChanged = preempt(lock, threadNumber, task);
+        stateMightHaveChanged = processMostUrgent(lock, threadNumber, task);
     }
     return stateMightHaveChanged;
 }
@@ -920,6 +925,7 @@ void Build::preemptComputeSlot(
         }
     };
     OperationTask ourTask(maxThreads, priority, operation);
+    ISAAC_ASSERT_MSG(tasks_.size() < tasks_.capacity(), "Unexpected high number of concurrent tasks. capacity: " << tasks_.capacity());
     tasks_.push_back(&ourTask);
 
     stateChangedCondition_.notify_all();
@@ -933,7 +939,7 @@ void Build::preemptComputeSlot(
             // don't admit new threads
             ourTask.complete_ = true;
         }
-        else if (!preemptCompute(lock, threadNumber, &ourTask))
+        else if (!yieldIfPossible(lock, threadNumber, &ourTask))
         {
             stateChangedCondition_.wait(lock);
         }
@@ -944,6 +950,9 @@ void Build::preemptComputeSlot(
     {
         stateChangedCondition_.wait(lock);
     }
+
+    ISAAC_ASSERT_MSG(tasks_.end() != std::find(tasks_.begin(), tasks_.end(), &ourTask), "Our task is gone from the list.");
+    tasks_.erase(std::find(tasks_.begin(), tasks_.end(), &ourTask));
 
     if (forceTermination_)
     {
@@ -1075,14 +1084,9 @@ void Build::sortBinParallel(alignment::BinMetadataCRefList::const_iterator &next
     // Don't release thread until all saving is done. Use threads that don't get anything to process for preemptive tasks such as realignment.
     while(!forceTermination_ && bins_.end() != nextUnsavedBinIt)
     {
-        if (!preemptCompute(lock, threadNumber, 0))
+        if (!yieldIfPossible(lock, threadNumber, 0))
         {
             stateChangedCondition_.wait(lock);
-        }
-        else
-        {
-            // have to notify all as the task threadsIn_ count and complete state changes
-            stateChangedCondition_.notify_all();
         }
     }
 }

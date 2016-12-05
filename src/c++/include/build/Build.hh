@@ -232,12 +232,12 @@ private:
 
     void returnLoadSlot(const bool exceptionUnwinding);
 
-    bool preemptCompute(
+    bool yieldIfPossible(
         boost::unique_lock<boost::mutex>& lock,
         const std::size_t threadNumber,
         Task *task);
 
-    bool preempt(boost::unique_lock<boost::mutex> &lock, const unsigned threadNumber, Task *task);
+    bool processMostUrgent(boost::unique_lock<boost::mutex> &lock, const unsigned threadNumber, Task *task);
 
     template <typename OperationT>
     void preemptComputeSlot(

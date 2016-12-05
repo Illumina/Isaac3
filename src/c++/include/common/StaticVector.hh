@@ -36,14 +36,14 @@ class StaticVector: boost::numeric::ublas::bounded_array<T, N, ALLOC>
 public:
     using BaseType::begin;
     using BaseType::empty;
-    using BaseType::iterator;
-    using BaseType::const_iterator;
-    using BaseType::const_reference;
+    using typename BaseType::iterator;
+    using typename BaseType::const_iterator;
+    using typename BaseType::const_reference;
     using BaseType::end;
     using BaseType::operator [];
     using BaseType::resize;
     using BaseType::size;
-    using BaseType::value_type;
+    using typename BaseType::value_type;
 
     StaticVector()
     {

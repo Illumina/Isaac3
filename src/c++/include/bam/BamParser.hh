@@ -47,7 +47,7 @@ inline char bamBase(const unsigned char bamSeq)
 
 inline unsigned char bamToBcl(const unsigned char qual, const unsigned char bamSeq)
 {
-    static const oligo::Translator<> translator;
+    static const oligo::Translator<> translator = {};
     const unsigned char q = 0xFF == qual ? 0 : std::min<unsigned char>(qual, 0x3f);
     const unsigned char base = bamBase(bamSeq);
 //            std::cerr << bamBase;

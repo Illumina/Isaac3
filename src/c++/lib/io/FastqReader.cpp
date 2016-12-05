@@ -244,6 +244,23 @@ void FastqReader::findQScores()
     // in some fastq files (like the ones produced by sra tools) + is followed by the header string. Just skip to the newline...
     qScoresBegin_ = findNewLine(qScoresBegin_, BufferType::const_iterator(buffer_.end()));
 
+    if (buffer_.end() == qScoresBegin_)
+    {
+        // We've reached the end of the buffer before we reached the beginning of the sequence
+        if (!fetchMore())
+        {
+            BOOST_THROW_EXCEPTION(FastqFormatException((boost::format("Fastq file end while looking for + sign: %s, offset %u") %
+                getPath() % getOffset(qScoresBegin_)).str()));
+        }
+        qScoresBegin_ = findNewLine(qScoresBegin_, BufferType::const_iterator(buffer_.end()));
+        if (buffer_.end() == qScoresBegin_)
+        {
+            BOOST_THROW_EXCEPTION(FastqFormatException((boost::format(
+                "Too many newline characters in fastq to fit in the buffer while looking for + sign: %s, offset %u") %
+                getPath() % getOffset(qScoresBegin_)).str()));
+        }
+    }
+
     qScoresBegin_ = findNotNewLine(qScoresBegin_, BufferType::const_iterator(buffer_.end()));
     if (buffer_.end() == qScoresBegin_)
     {

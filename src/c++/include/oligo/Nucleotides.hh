@@ -108,7 +108,7 @@ private:
 
 inline unsigned int getValue(const char &base)
 {   
-    static const oligo::Translator<> translator;
+    static const oligo::Translator<> translator = {};
     return translator[base];
 }
 
