@@ -1,3 +1,9 @@
+iSAAC-03.17.03.01
+* SAAC-1209 Up to threads-1 clusters at the end of a tile don't get transposed due to incorrect division of work
+
+iSAAC-03.16.12.14
+* SAAC-1152 Split aligner segfaults on insertions that begin within clipped tail start bases
+
 iSAAC-03.16.12.05
 * SAAC-1142 IBM XL compiler compatibility
 

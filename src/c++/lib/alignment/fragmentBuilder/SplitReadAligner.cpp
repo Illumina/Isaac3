@@ -791,7 +791,14 @@ bool SplitReadAligner::alignSimpleInsertion(
     const reference::Contig &contig = contigList[headAlignment.contigId];
 
     std::vector<char>::const_iterator tailIterator = sequenceBegin + tailOffset + insertionLength;
-    unsigned tailLength = observedEnd - tailOffset - insertionLength;
+    int tailLength = int(observedEnd) - tailOffset - insertionLength;
+
+    if (0 >= tailLength)
+    {
+        ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(headAlignment.getCluster().getId(), "alignSimpleInsertion: tail length is negative possibly because of too much clipping on the left." << " tailLength:" << tailLength << " observedEnd:" << observedEnd << " tailOffset:" << tailOffset << " insertionLength:" << insertionLength << " headSeedOffset:" << headSeedOffset);
+        return false;
+    }
+
     // number of mismatches when insertion is at the left extremity
     ISAAC_THREAD_CERR_DEV_TRACE_CLUSTER_ID(headAlignment.getCluster().getId(), " alignSimpleInsertion insertionLength:" << insertionLength << " tailLength:" << tailLength);
     const unsigned tailMismatches = countMismatches(tailIterator,

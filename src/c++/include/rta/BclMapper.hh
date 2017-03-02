@@ -247,8 +247,9 @@ public:
         threads_.execute(
             [this, outputIterator](const unsigned threadNumber, const unsigned threadsTotal)
             {
-                const unsigned clusterBegin = (getGeometryClusterCount() / threadsTotal) * threadNumber;
-                const unsigned clusterEnd = std::min(getGeometryClusterCount(), (getGeometryClusterCount() / threadsTotal) * (threadNumber + 1));
+                const unsigned chunkSize = (getGeometryClusterCount() + threadsTotal - 1) / threadsTotal;
+                const unsigned clusterBegin = chunkSize * threadNumber;
+                const unsigned clusterEnd = std::min(getGeometryClusterCount(), chunkSize * (threadNumber + 1));
                 // if there are less clusters than threads, let only thread 0 do the job
                 if (clusterBegin || !threadNumber)
                 {

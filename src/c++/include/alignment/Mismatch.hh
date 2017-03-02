@@ -164,9 +164,10 @@ unsigned countMismatches(
     const SequenceIteratorT basesIterator,
     const ReferenceIteratorT referenceBegin,
     const ReferenceIteratorT referenceEnd,
-    unsigned length,
+    int length,
     BaseExtractor baseExtractor)
 {
+    ISAAC_ASSERT_MSG(0 <= length, "Positive length is required:" << length);
     return countMismatches(basesIterator, basesIterator + length,
                            referenceBegin, referenceEnd, baseExtractor);
 }

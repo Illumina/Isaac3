@@ -1214,6 +1214,29 @@ void TestSplitReadAligner::testEverything()
         CPPUNIT_ASSERT_EQUAL(std::size_t(3), fragmentMetadataList.size());
         CPPUNIT_ASSERT_EQUAL(std::string("64S85M"), fragmentMetadataList[2].getCigarString());
     }
+
+    {   // SAAC-1152 Split aligner segfaults on insertions that begin within clipped tail start bases
+        // the split is not expected to occur, but the original code would try to compute mismatches on a negative length sequence,
+        // which sometimes would cause segfault.
+        isaac::alignment::FragmentMetadataList fragmentMetadataList(2);
+        fragmentMetadataList[1].leftClipped() = 1;
+        fragmentMetadataList[1].firstAnchor_ = isaac::alignment::Anchor(1, 33, true);
+        fragmentMetadataList[0].leftClipped() = 60;
+        fragmentMetadataList[0].firstAnchor_ = isaac::alignment::Anchor(60, 60, true);
+        fragmentMetadataList[0].lastAnchor_ = isaac::alignment::Anchor(118, 149, true);
+
+        align(
+              "GGCAGATGCTGGTGGCTGTCTTCCCTCCCAGGGGCAGATGCTGGTGGCTGTCTTCCCTCCCTGGGGCAGATGCTGGTGGCTGTCTTCCCTCCCAGGGGCAGGTGCTGGTGGATGTCTTCTCTCCCAGGAACAGTTCCTGGAGGCTGTCT",
+              "                                                                                              GGCAGATGCTGGTGGCTGTCTTCCCTCCCAGGGGCAGATGCTGGTGGCTGTCTTCCCTCCCTGGGGCAGATGCTGGTGGCTGTCTTCCCTCCCAGGGGCAGGTGCTGGTGGATGTCTTCTCTCCCAGGAACAGTTCCTGGAGGCTGTCT",
+              "AGCAGCTCCTGGAGGCTGTCTTCCCTCCCAGGGGCAGATGCTGGTGGCTGTCTTCCCTCCCAGAGGCAGATGCTGGTGGCTGTCTTCCCTCCCAGGCAGATGCTGGTGGCTGTCTTCCCTCCCAGAGGAACAGTTCCTGGAGGCTGTCTTCCCTCCCAGGGGCAGATGCAGATGCTGGTGGCTGGCTTTCTTCCCAGGGGCAGGTGCTGGAGGCTGTCTTCCCTCCCAGGGGCAGGTGCTGGTGGCTGTCTTCCCTCCCAGGGGCAGATGCTGGTGGCTGTCTTCCCTCCCAGGGGCAGG",
+              fragmentMetadataList,
+              4740105);
+
+
+        CPPUNIT_ASSERT_EQUAL(std::size_t(2), fragmentMetadataList.size());
+        CPPUNIT_ASSERT_EQUAL(std::string("60S89M"), fragmentMetadataList[0].getCigarString());
+        CPPUNIT_ASSERT_EQUAL(std::string("1S148M"), fragmentMetadataList[1].getCigarString());
+    }
     }
 }
 
