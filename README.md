@@ -11,7 +11,7 @@ along with this program. If not, see
 
 ---
 
-#Isaac aligner
+# Isaac aligner
 
 To configure and install the product, see the [src/INSTALL](src/INSTALL).
 
@@ -21,18 +21,18 @@ Isaac is included in the [HiSeq Analysis Software described here](http://support
 
 See [src/Changes](src/Changes) for the release history details.
 
-#Quick start guide
+# Quick start guide
 
 The following example commands will get you through preparing the reference and aligning some example PhiX data. For more examples and details
 please see [src/markdown/manual.md](src/markdown/manual.md)
 
-##Prepare reference genome
+## Prepare reference genome
 
 This step can take long time on bigger genomes. Normally it is done once per reference and the output is reused in further data analyses.
 
     $ <isaac>/bin/isaac-sort-reference -g <isaac>/share/*/data/examples/PhiX/iGenomes/PhiX/NCBI/1993-04-28/Sequence/Chromosomes/phix.fa -o ./PhiX
 
-##Process fastq data
+## Process fastq data
 
 Analyze a pair of fastq files and produce bam output.
 
